@@ -1,0 +1,4 @@
+keras-bert==0.78.0
+keras
+keras-contrib
+frozendict

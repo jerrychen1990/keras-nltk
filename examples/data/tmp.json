@@ -1,0 +1,794 @@
+[
+    {
+        "id": "6496",
+        "title": "6496",
+        "content": "They are all in on it and the same people who caused the destruction of the economy are still running the show so they can keep us down and buy up the country cheap.",
+        "entity_list": [
+            [
+                "people",
+                "ENTITY",
+                [
+                    [
+                        35,
+                        41
+                    ]
+                ]
+            ],
+            [
+                "destruction",
+                "ENTITY",
+                [
+                    [
+                        57,
+                        68
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Cause-Effect",
+                [
+                    "people",
+                    "ENTITY",
+                    [
+                        35,
+                        41
+                    ]
+                ],
+                [
+                    "destruction",
+                    "ENTITY",
+                    [
+                        57,
+                        68
+                    ]
+                ]
+            ]
+        ],
+        "label": "Cause-Effect"
+    },
+    {
+        "id": "3260",
+        "title": "3260",
+        "content": "Sheet and rill erosion is considered to be the most harmful of all soil erosion forms since it may be unnoticed or ignored by the peasant.",
+        "entity_list": [
+            [
+                "erosion",
+                "ENTITY",
+                [
+                    [
+                        15,
+                        22
+                    ],
+                    [
+                        72,
+                        79
+                    ]
+                ]
+            ],
+            [
+                "rill",
+                "ENTITY",
+                [
+                    [
+                        10,
+                        14
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Cause-Effect",
+                [
+                    "erosion",
+                    "ENTITY",
+                    [
+                        15,
+                        22
+                    ]
+                ],
+                [
+                    "rill",
+                    "ENTITY",
+                    [
+                        10,
+                        14
+                    ]
+                ]
+            ]
+        ],
+        "label": "Cause-Effect"
+    },
+    {
+        "id": "5645",
+        "title": "5645",
+        "content": "Researchers have thrown a lot of resources into the archives without checking.",
+        "entity_list": [
+            [
+                "resources",
+                "ENTITY",
+                [
+                    [
+                        33,
+                        42
+                    ]
+                ]
+            ],
+            [
+                "archives",
+                "ENTITY",
+                [
+                    [
+                        52,
+                        60
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Entity-Destination",
+                [
+                    "resources",
+                    "ENTITY",
+                    [
+                        33,
+                        42
+                    ]
+                ],
+                [
+                    "archives",
+                    "ENTITY",
+                    [
+                        52,
+                        60
+                    ]
+                ]
+            ]
+        ],
+        "label": "Entity-Destination"
+    },
+    {
+        "id": "4749",
+        "title": "4749",
+        "content": "Thrombopoietin is a glycoprotein hormone that regulates the production of platelets by the bone marrow .",
+        "entity_list": [
+            [
+                "platelets",
+                "ENTITY",
+                [
+                    [
+                        74,
+                        83
+                    ]
+                ]
+            ],
+            [
+                "marrow",
+                "ENTITY",
+                [
+                    [
+                        96,
+                        102
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Product-Producer",
+                [
+                    "platelets",
+                    "ENTITY",
+                    [
+                        74,
+                        83
+                    ]
+                ],
+                [
+                    "marrow",
+                    "ENTITY",
+                    [
+                        96,
+                        102
+                    ]
+                ]
+            ]
+        ],
+        "label": "Product-Producer"
+    },
+    {
+        "id": "5014",
+        "title": "5014",
+        "content": " Corruption is one of the main causes of a global crisis that deprives more than a billion people of access to safe drinking water and more than 2.6 billion of access to sanitation systems.",
+        "entity_list": [
+            [
+                "Corruption",
+                "ENTITY",
+                [
+                    [
+                        1,
+                        11
+                    ]
+                ]
+            ],
+            [
+                "crisis",
+                "ENTITY",
+                [
+                    [
+                        50,
+                        56
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Cause-Effect",
+                [
+                    "Corruption",
+                    "ENTITY",
+                    [
+                        1,
+                        11
+                    ]
+                ],
+                [
+                    "crisis",
+                    "ENTITY",
+                    [
+                        50,
+                        56
+                    ]
+                ]
+            ]
+        ],
+        "label": "Cause-Effect"
+    },
+    {
+        "id": "7710",
+        "title": "7710",
+        "content": "Literary criticism is the study of literature by means of a microscopic knowledge of the language in which a book is written, of its growth from various roots , of its stages of development and the factors influencing them, of its condition in the period of this particular composition, of the writer's idiosyncrasies of thought and style in his ripening periods, of the general history and literature of his race, and of the special characteristics of his age and of his contemporary writers.",
+        "entity_list": [
+            [
+                "growth",
+                "ENTITY",
+                [
+                    [
+                        133,
+                        139
+                    ]
+                ]
+            ],
+            [
+                "roots",
+                "ENTITY",
+                [
+                    [
+                        153,
+                        158
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Other",
+                [
+                    "growth",
+                    "ENTITY",
+                    [
+                        133,
+                        139
+                    ]
+                ],
+                [
+                    "roots",
+                    "ENTITY",
+                    [
+                        153,
+                        158
+                    ]
+                ]
+            ]
+        ],
+        "label": "Other"
+    },
+    {
+        "id": "2347",
+        "title": "2347",
+        "content": "The band performs with a high level of musicality , energy and spirit while combining sensitive group interplay with dynamic solo improvisations.",
+        "entity_list": [
+            [
+                "band",
+                "ENTITY",
+                [
+                    [
+                        4,
+                        8
+                    ]
+                ]
+            ],
+            [
+                "musicality",
+                "ENTITY",
+                [
+                    [
+                        39,
+                        49
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Other",
+                [
+                    "band",
+                    "ENTITY",
+                    [
+                        4,
+                        8
+                    ]
+                ],
+                [
+                    "musicality",
+                    "ENTITY",
+                    [
+                        39,
+                        49
+                    ]
+                ]
+            ]
+        ],
+        "label": "Other"
+    },
+    {
+        "id": "2196",
+        "title": "2196",
+        "content": "The newly elected president is making a speech addressing the latest threat to this countries economy and people.",
+        "entity_list": [
+            [
+                "speech",
+                "ENTITY",
+                [
+                    [
+                        40,
+                        46
+                    ]
+                ]
+            ],
+            [
+                "threat",
+                "ENTITY",
+                [
+                    [
+                        69,
+                        75
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Message-Topic",
+                [
+                    "speech",
+                    "ENTITY",
+                    [
+                        40,
+                        46
+                    ]
+                ],
+                [
+                    "threat",
+                    "ENTITY",
+                    [
+                        69,
+                        75
+                    ]
+                ]
+            ]
+        ],
+        "label": "Message-Topic"
+    },
+    {
+        "id": "2826",
+        "title": "2826",
+        "content": "Fellows also participate in a program of seminars and colloquia focusing on contemporary issues and community building in the Asia-Pacific region.",
+        "entity_list": [
+            [
+                "colloquia",
+                "ENTITY",
+                [
+                    [
+                        54,
+                        63
+                    ]
+                ]
+            ],
+            [
+                "issues",
+                "ENTITY",
+                [
+                    [
+                        89,
+                        95
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Message-Topic",
+                [
+                    "colloquia",
+                    "ENTITY",
+                    [
+                        54,
+                        63
+                    ]
+                ],
+                [
+                    "issues",
+                    "ENTITY",
+                    [
+                        89,
+                        95
+                    ]
+                ]
+            ]
+        ],
+        "label": "Message-Topic"
+    },
+    {
+        "id": "7122",
+        "title": "7122",
+        "content": "The bulbs in my house use 190 watts.",
+        "entity_list": [
+            [
+                "bulbs",
+                "ENTITY",
+                [
+                    [
+                        4,
+                        9
+                    ]
+                ]
+            ],
+            [
+                "house",
+                "ENTITY",
+                [
+                    [
+                        16,
+                        21
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Component-Whole",
+                [
+                    "bulbs",
+                    "ENTITY",
+                    [
+                        4,
+                        9
+                    ]
+                ],
+                [
+                    "house",
+                    "ENTITY",
+                    [
+                        16,
+                        21
+                    ]
+                ]
+            ]
+        ],
+        "label": "Component-Whole"
+    },
+    {
+        "id": "3026",
+        "title": "3026",
+        "content": "Serious people flinch from being associated with the intellectual slum that is the Bush campaign, with its riffraff of liars and aspiring ayatollahs.",
+        "entity_list": [
+            [
+                "liars",
+                "ENTITY",
+                [
+                    [
+                        119,
+                        124
+                    ]
+                ]
+            ],
+            [
+                "riffraff",
+                "ENTITY",
+                [
+                    [
+                        107,
+                        115
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Member-Collection",
+                [
+                    "liars",
+                    "ENTITY",
+                    [
+                        119,
+                        124
+                    ]
+                ],
+                [
+                    "riffraff",
+                    "ENTITY",
+                    [
+                        107,
+                        115
+                    ]
+                ]
+            ]
+        ],
+        "label": "Member-Collection"
+    },
+    {
+        "id": "3908",
+        "title": "3908",
+        "content": "This painting depicts a swooping falcon with its claws bared pursuing a host of nine sparrows in frightened flight, the two forming an energetic arc enriched by the lifted right wing of the falcon and the panicked sparrows dispersed in all directions.",
+        "entity_list": [
+            [
+                "sparrows",
+                "ENTITY",
+                [
+                    [
+                        85,
+                        93
+                    ],
+                    [
+                        214,
+                        222
+                    ]
+                ]
+            ],
+            [
+                "host",
+                "ENTITY",
+                [
+                    [
+                        72,
+                        76
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Member-Collection",
+                [
+                    "sparrows",
+                    "ENTITY",
+                    [
+                        85,
+                        93
+                    ]
+                ],
+                [
+                    "host",
+                    "ENTITY",
+                    [
+                        72,
+                        76
+                    ]
+                ]
+            ]
+        ],
+        "label": "Member-Collection"
+    },
+    {
+        "id": "7559",
+        "title": "7559",
+        "content": "The students designed the home's living areas with an eye toward making a small house feel spacious.",
+        "entity_list": [
+            [
+                "students",
+                "ENTITY",
+                [
+                    [
+                        4,
+                        12
+                    ]
+                ]
+            ],
+            [
+                "areas",
+                "ENTITY",
+                [
+                    [
+                        40,
+                        45
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Other",
+                [
+                    "students",
+                    "ENTITY",
+                    [
+                        4,
+                        12
+                    ]
+                ],
+                [
+                    "areas",
+                    "ENTITY",
+                    [
+                        40,
+                        45
+                    ]
+                ]
+            ]
+        ],
+        "label": "Other"
+    },
+    {
+        "id": "3379",
+        "title": "3379",
+        "content": "A war of words erupts between Sinn Fein and the DUP over the devolution of policing and justice powers to Northern Ireland.",
+        "entity_list": [
+            [
+                "war",
+                "ENTITY",
+                [
+                    [
+                        2,
+                        5
+                    ]
+                ]
+            ],
+            [
+                "devolution",
+                "ENTITY",
+                [
+                    [
+                        61,
+                        71
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Message-Topic",
+                [
+                    "war",
+                    "ENTITY",
+                    [
+                        2,
+                        5
+                    ]
+                ],
+                [
+                    "devolution",
+                    "ENTITY",
+                    [
+                        61,
+                        71
+                    ]
+                ]
+            ]
+        ],
+        "label": "Message-Topic"
+    },
+    {
+        "id": "3209",
+        "title": "3209",
+        "content": "It is a relatively simple task to lubricate your brake cables periodically.",
+        "entity_list": [
+            [
+                "cables",
+                "ENTITY",
+                [
+                    [
+                        55,
+                        61
+                    ]
+                ]
+            ],
+            [
+                "brake",
+                "ENTITY",
+                [
+                    [
+                        49,
+                        54
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Component-Whole",
+                [
+                    "cables",
+                    "ENTITY",
+                    [
+                        55,
+                        61
+                    ]
+                ],
+                [
+                    "brake",
+                    "ENTITY",
+                    [
+                        49,
+                        54
+                    ]
+                ]
+            ]
+        ],
+        "label": "Component-Whole"
+    },
+    {
+        "id": "928",
+        "title": "928",
+        "content": " Job listings in India have been added to our careers section .",
+        "entity_list": [
+            [
+                "Job listings",
+                "ENTITY",
+                [
+                    [
+                        1,
+                        13
+                    ]
+                ]
+            ],
+            [
+                "careers section",
+                "ENTITY",
+                [
+                    [
+                        46,
+                        61
+                    ]
+                ]
+            ]
+        ],
+        "rel_list": [
+            [
+                "Entity-Destination",
+                [
+                    "Job listings",
+                    "ENTITY",
+                    [
+                        1,
+                        13
+                    ]
+                ],
+                [
+                    "careers section",
+                    "ENTITY",
+                    [
+                        46,
+                        61
+                    ]
+                ]
+            ]
+        ],
+        "label": "Entity-Destination"
+    }
+]

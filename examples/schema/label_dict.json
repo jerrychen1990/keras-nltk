@@ -1,0 +1,20 @@
+[
+  {
+    "0": "Other",
+    "1": "Cause-Effect",
+    "2": "Component-Whole",
+    "3": "Entity-Destination",
+    "4": "Member-Collection",
+    "5": "Message-Topic",
+    "6": "Product-Producer"
+  },
+  {
+    "Other": 0,
+    "Cause-Effect": 1,
+    "Component-Whole": 2,
+    "Entity-Destination": 3,
+    "Member-Collection": 4,
+    "Message-Topic": 5,
+    "Product-Producer": 6
+  }
+]

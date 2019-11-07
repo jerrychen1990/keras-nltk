@@ -1,0 +1,16 @@
+[
+  {
+    "0": "O",
+    "1": "B_ENTITY",
+    "2": "M_ENTITY",
+    "3": "E_ENTITY",
+    "4": "S_ENTITY"
+  },
+  {
+    "O": 0,
+    "B_ENTITY": 1,
+    "M_ENTITY": 2,
+    "E_ENTITY": 3,
+    "S_ENTITY": 4
+  }
+]

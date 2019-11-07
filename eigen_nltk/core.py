@@ -1,0 +1,214 @@
+# -*- coding: utf-8 -*-
+"""
+-------------------------------------------------
+   File Name：     api
+   Description :
+   Author :       chenhao
+   date：          2019-09-19
+-------------------------------------------------
+   Change Activity:
+                   2019-09-19:
+-------------------------------------------------
+"""
+
+import codecs
+import copy
+import pickle
+import math
+from abc import abstractmethod, ABC
+
+import numpy as np
+from keras.models import load_model as load_keras_model
+from keras.utils.training_utils import multi_gpu_model
+from keras_bert import Tokenizer
+
+from eigen_nltk.decorator import ensure_file_path
+from eigen_nltk.model_utils import VALID_FIT_GENERATOR_KWARGS, get_base_customer_objects
+from eigen_nltk.utils import get_logger
+
+
+class Context(object):
+    def __init__(self, vocab_path):
+        self.token2id = dict()
+        self.vocab_list = []
+        with codecs.open(vocab_path, "r", "utf8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    self.token2id[line] = len(self.token2id)
+                    self.vocab_list.append(line)
+        self.id2token = {int(v): k for k, v in self.token2id.items()}
+        self.tokenizer = Tokenizer(self.token2id)
+        self.vocab_size = len(self.id2token)
+
+    def get_model_args(self):
+        return dict(vocab_size=self.vocab_size)
+
+
+class BaseEstimator(object):
+    def __init__(self, name, logger_level="INFO"):
+        self.name = name
+        self.logger_level = logger_level
+        self.logger = get_logger(name, self.logger_level)
+
+    @abstractmethod
+    def predict_batch(self, batch, **kwargs):
+        self.logger.info("predicting {0} data with args:{1}".format(len(batch), kwargs))
+
+        pass
+
+    def predict_item(self, item, **kwargs):
+        batch_rs = self.predict_batch([item], **kwargs)
+        return batch_rs[0]
+
+
+class ModelEstimator(BaseEstimator):
+    customer_objects = get_base_customer_objects()
+
+    def __init__(self, name, data_parser, logger_level="INFO"):
+        super().__init__(name, logger_level)
+        self.model_name = name
+        self.model = None
+        self.model_args = None
+        self.training_model = None
+        self.data_parser = data_parser
+        self.context = data_parser.context
+
+    def __getstate__(self):
+        odict = copy.copy(self.__dict__)
+        del odict['model']
+        del odict['logger']
+        del odict['training_model']
+        return odict
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.logger = get_logger(self.name, self.logger_level)
+
+    def create_model(self, model_args):
+        all_args = dict(**model_args, **(self.context.get_model_args()))
+        self.model_args = all_args
+        self.model = self._build_model(**self.model_args)
+        self.model.summary()
+        return self.model
+
+    @ensure_file_path
+    def save_model(self, path):
+        path = path + ".h5"
+        self.logger.info("saving model to path:{}".format(path))
+        self.model.save(path)
+
+    def save_estimator(self, path):
+        self.logger.info("saving extractor to {}".format(path))
+        self.save_model(path=path)
+        pickle.dump(self, open(path + ".pkl", 'wb'))
+
+    def load_model(self, path):
+        self.logger.info("loading model from path:{}".format(path))
+        self.model = load_keras_model(path, custom_objects=self.customer_objects)
+        self.model.summary()
+
+    @classmethod
+    def load_estimator(cls, path):
+        extractor = pickle.load(open(path + ".pkl", "rb"))
+        extractor.logger.info("loading extractor from path:{}".format(path))
+        extractor.load_model(path + ".h5")
+        return extractor
+
+    @abstractmethod
+    def _build_model(self, **kwargs):
+        self.logger.info("creating model args:{}".format(kwargs))
+        pass
+
+    @abstractmethod
+    def _compile_model(self, **kwargs):
+        self.logger.info("compiling model args:{}".format(kwargs))
+
+    def _pre_train(self, train_args, compile_args):
+        gpu_num = train_args.get("gpu_num", 1)
+        if gpu_num > 1:
+            self.training_model = multi_gpu_model(self.model, gpus=gpu_num)
+        else:
+            self.training_model = self.model
+        self._compile_model(**compile_args)
+
+    def train_model(self, train_data, dev_data, train_args, compile_args):
+        self.logger.info(
+            "train model with {0} train_data and {1} dev_data, training args:{2}, compile_args:{3}".format(
+                len(train_data), len(dev_data), train_args, compile_args))
+        self._pre_train(train_args, compile_args)
+        enhanced_train_data = self._get_enhanced_data(train_data)
+        enhanced_dev_data = self._get_enhanced_data(dev_data)
+
+        x, y = self._get_model_train_input(enhanced_train_data)
+        x_dev, y_dev = self._get_model_train_input(enhanced_dev_data)
+        if x[0].shape[0] == 0:
+            self.logger.warn("no valid training sample, model will not train!")
+            return self.model
+        self.training_model.fit(x, y, validation_data=[x_dev, y_dev], **train_args)
+        return self.model
+
+    def _get_generator(self, train_data, batch_size, **kwargs):
+        data = copy.copy(train_data)
+        while True:
+            np.random.shuffle(data)
+            for idx in range(0, len(data), batch_size):
+                batch_data = data[idx: idx + batch_size]
+                yield self._get_model_train_input(batch_data, **kwargs)
+
+    def train_model_generator(self, train_data, dev_data, train_args, compile_args):
+        self.logger.info("training model with generator")
+        self._pre_train(train_args, compile_args)
+        batch_size = train_args['batch_size']
+        enhanced_train_data = self._get_enhanced_data(train_data)
+        enhanced_dev_data = self._get_enhanced_data(dev_data)
+        kwargs = dict((k, v) for k, v in train_args.items() if k in VALID_FIT_GENERATOR_KWARGS)
+        validation_steps = int(math.ceil(len(enhanced_dev_data) / batch_size))
+
+        self.training_model.fit_generator(
+            generator=self._get_generator(train_data=enhanced_train_data, batch_size=batch_size),
+            validation_data=self._get_generator(train_data=enhanced_dev_data, batch_size=batch_size),
+            validation_steps=validation_steps,
+            **kwargs)
+
+    def predict_batch(self, data, batch_size=64, verbose=1, show_detail=False, **kwargs):
+        super().predict_batch(data, **kwargs)
+        enhanced_data = self._get_enhanced_data(data)
+        x = self._get_model_test_input(enhanced_data)
+        pred_data = self.model.predict(x, batch_size=batch_size, verbose=verbose)
+        rs_data = self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail)
+        return rs_data
+
+    @abstractmethod
+    def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _get_enhanced_data(self, data):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _get_model_train_input(self, train_data, **kwargs):
+        raise NotImplementedError
+
+    def _get_model_test_input(self, test_data, **kwargs):
+        x, y = self._get_model_train_input(test_data)
+        return x
+
+
+class RuleEstimator(BaseEstimator):
+    @abstractmethod
+    def predict_batch(self, batch, **kwargs):
+        raise NotImplementedError
+
+
+class EnsembleEstimator(BaseEstimator):
+    @abstractmethod
+    def predict_batch(self, batch, **kwargs):
+        raise NotImplementedError
+
+
+class PipelineEstimator(BaseEstimator):
+    @abstractmethod
+    def predict_batch(self, batch, **kwargs):
+        raise NotImplementedError
