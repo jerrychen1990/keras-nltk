@@ -364,3 +364,10 @@ def get_major_element(l):
 def create_dir(dir_path):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
+
+
+def list_find(l, ele):
+    try:
+        return l.index(ele)
+    except Exception as e:
+        return -1

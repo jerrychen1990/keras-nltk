@@ -13,23 +13,18 @@
 
 from __future__ import absolute_import
 from __future__ import division
+
 import os
 
-import warnings
-
-from keras import backend as K
-from keras import activations
-from keras import initializers
-from keras import regularizers
-from keras import constraints
 from keras.layers import *
 from keras.models import Model, load_model
-
+from keras_bert import get_custom_objects, load_trained_model_from_checkpoint
 from keras_contrib.losses import crf_loss
 from keras_contrib.metrics import crf_marginal_accuracy
 from keras_contrib.metrics import crf_viterbi_accuracy
 from keras_contrib.utils.test_utils import to_tuple
-from keras_bert import get_custom_objects, load_trained_model_from_checkpoint
+from keras_transformer import get_model
+
 from eigen_nltk.optimizer import BertAdamWarmup, BertAdam
 
 
@@ -711,4 +706,147 @@ def get_seq_embedding_model(max_len, vocab_size,
         feature = Bidirectional(LSTM(lstm_dim // 2, return_sequences=True))(feature)
     model = Model([words_input, seg_input], feature)
     # model.summary()
+    return model
+
+
+from keras_transformer.transformer import _wrap_layer, attention_builder, feed_forward_builder, EmbeddingRet, \
+    TrigPosEmbedding, EmbeddingSim
+
+
+def get_lm_decoder_component(name,
+                             input_layer,
+                             head_num,
+                             hidden_dim,
+                             attention_activation=None,
+                             feed_forward_activation='relu',
+                             dropout_rate=0.0,
+                             trainable=True,
+                             use_adapter=False,
+                             adapter_units=None,
+                             adapter_activation='relu'):
+    """Multi-head self-attention, multi-head query attention and feed-forward layer.
+
+    :param name: Prefix of names for internal layers.
+    :param input_layer: Input layer.
+    :param head_num: Number of heads in multi-head self-attention.
+    :param hidden_dim: Hidden dimension of feed forward layer.
+    :param attention_activation: Activation for multi-head self-attention.
+    :param feed_forward_activation: Activation for feed-forward layer.
+    :param dropout_rate: Dropout rate.
+    :param trainable: Whether the layers are trainable.
+    :param use_adapter: Whether to use feed-forward adapters before each residual connections.
+    :param adapter_units: The dimension of the first transformation in feed-forward adapter.
+    :param adapter_activation: The activation after the first transformation in feed-forward adapter.
+    :return: Output layer.
+    """
+    self_attention_name = '%s-MultiHeadSelfAttention' % name
+    feed_forward_name = '%s-FeedForward' % name
+    self_attention_layer = _wrap_layer(
+        name=self_attention_name,
+        input_layer=input_layer,
+        build_func=attention_builder(
+            name=self_attention_name,
+            head_num=head_num,
+            activation=attention_activation,
+            history_only=True,
+            trainable=trainable,
+        ),
+        dropout_rate=dropout_rate,
+        trainable=trainable,
+        use_adapter=use_adapter,
+        adapter_units=adapter_units,
+        adapter_activation=adapter_activation,
+    )
+
+    feed_forward_layer = _wrap_layer(
+        name=feed_forward_name,
+        input_layer=self_attention_layer,
+        build_func=feed_forward_builder(
+            name=feed_forward_name,
+            hidden_dim=hidden_dim,
+            activation=feed_forward_activation,
+            trainable=trainable,
+        ),
+        dropout_rate=dropout_rate,
+        trainable=trainable,
+        use_adapter=use_adapter,
+        adapter_units=adapter_units,
+        adapter_activation=adapter_activation,
+    )
+    return feed_forward_layer
+
+
+def get_lm_decoder_model(
+        vocab_size,
+        embedding_dim,
+        decoder_num,
+        head_num,
+        hidden_dim,
+        attention_activation=None,
+        feed_forward_activation='relu',
+        dropout_rate=0.0,
+        embed_weights=None,
+        embed_trainable=None,
+        trainable=True,
+        use_adapter=False,
+        adapter_units=None,
+        adapter_activation='relu'):
+    """Get decoders.
+    :param vocab_size: Number of distinct tokens.
+    :param embedding_dim: Dimension of token embedding.
+    :param decoder_num: Number of decoder components.
+    :param head_num: Number of heads in multi-head self-attention.
+    :param hidden_dim: Hidden dimension of feed forward layer.
+    :param attention_activation: Activation for multi-head self-attention.
+    :param feed_forward_activation: Activation for feed-forward layer.
+    :param dropout_rate: Dropout rate.
+    :param use_same_embed: Whether to use the same token embedding layer. `token_num`, `embed_weights` and
+                           `embed_trainable` should be lists of two elements if it is False.
+    :param embed_weights: Initial weights of token embedding.
+    :param embed_trainable: Whether the token embedding is trainable. It will automatically set to False if the given
+                            value is None when embedding weights has been provided.
+    :param trainable: Whether the layers are trainable.
+    :param use_adapter: Whether to use feed-forward adapters before each residual connections.
+    :param adapter_units: The dimension of the first transformation in feed-forward adapter.
+    :param adapter_activation: The activation after the first transformation in feed-forward adapter.
+    :return: Keras model.
+    """
+    decoder_embed_layer = EmbeddingRet(
+        input_dim=vocab_size,
+        output_dim=embedding_dim,
+        mask_zero=True,
+        weights=embed_weights,
+        trainable=embed_trainable,
+        name='Decoder-Token-Embedding',
+    )
+
+    decoder_input = Input(shape=(None,), name='Decoder-Input')
+    decoder_embed, decoder_embed_weights = decoder_embed_layer(decoder_input)
+    decoder_embed = TrigPosEmbedding(
+        mode=TrigPosEmbedding.MODE_ADD,
+        name='Decoder-Embedding',
+    )(decoder_embed)
+
+    last_layer = decoder_embed
+    for i in range(decoder_num):
+        last_layer = get_lm_decoder_component(
+            name='Decoder-%d' % (i + 1),
+            input_layer=last_layer,
+            head_num=head_num,
+            hidden_dim=hidden_dim,
+            attention_activation=attention_activation,
+            feed_forward_activation=feed_forward_activation,
+            dropout_rate=dropout_rate,
+            trainable=trainable,
+            use_adapter=use_adapter,
+            adapter_units=adapter_units,
+            adapter_activation=adapter_activation,
+        )
+
+    dense_layer = EmbeddingSim(
+        trainable=trainable,
+        name='Output',
+    )([last_layer, decoder_embed_weights])
+
+    model = Model(decoder_input, dense_layer)
     return model

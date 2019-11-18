@@ -171,6 +171,12 @@ class ModelEstimator(BaseEstimator):
             validation_steps=validation_steps,
             **kwargs)
 
+    def _get_raw_predict(self, data, batch_size=64, verbose=1):
+        enhanced_data = self._get_enhanced_data(data)
+        x = self._get_model_test_input(enhanced_data)
+        pred_data = self.model.predict(x, batch_size=batch_size, verbose=verbose)
+        return pred_data
+
     def predict_batch(self, data, batch_size=64, verbose=1, show_detail=False, **kwargs):
         super().predict_batch(data, **kwargs)
         enhanced_data = self._get_enhanced_data(data)

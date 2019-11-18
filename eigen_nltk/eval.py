@@ -144,6 +144,14 @@ def add_classify_pred(data, pred):
     return rs_list
 
 
+def add_language_model_pred(data, pred):
+    rs_list = []
+    for p, e in zip(pred, data):
+        rs = dict(content=e, generate_content=p)
+        rs_list.append(rs)
+    return rs_list
+
+
 # eval ner_result with test_data
 def eval_ner(test_data, ner_pred_list, contain_span=True):
     spo_func = ner2spo_detail if contain_span else ner2spo
@@ -179,3 +187,7 @@ def eval_classify(test_data, label_pred):
     spo_eval = eval_spo_list(spo_true, spo_pred)
     spo_eval.update(accuracy=accuracy)
     return spo_eval
+
+
+def eval_language_model(test_data, lm_pred):
+    return {}

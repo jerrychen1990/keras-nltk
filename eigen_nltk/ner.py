@@ -116,10 +116,6 @@ class NerExtractor(ModelEstimator):
             y = np.array(y)[:, :, np.newaxis]
         return [x, seg], y
 
-    def _get_model_test_input(self, test_data):
-        x, y = self._get_model_train_input(test_data)
-        return x
-
     def create_model(self, model_args):
         model_args["max_len"] = self.max_len
         super().create_model(model_args)

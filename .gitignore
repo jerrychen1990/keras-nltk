@@ -1,2 +1,16 @@
 .idea/
+tmp.py
+config/
+schema/
+*_main.py
+scripts.sh
+.ipynb_checkpoints/
+*.ipynb
+data/
+eigen_nltk/__pycache__/
+eval/
+model/
+output/
+tensorboard/
+
 

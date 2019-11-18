@@ -15,13 +15,13 @@ from abc import abstractmethod
 from eigen_nltk.core import Context
 from eigen_nltk.utils import print_info, jdumps, read_json_data, get_now_str, jdump, create_dir
 from eigen_nltk.entity_cliassify import EntityClsEstimator, EntityClsContext
-from eigen_nltk.text_generate import TextGenerator
+from eigen_nltk.language_model import LMContext, TransformerLM
 from eigen_nltk.ner import NerExtractor, NerContext
 from eigen_nltk.nre import NreExtractor, NreContext
 from eigen_nltk.classify import ClassifyEstimator, ClassifyContext
 from eigen_nltk.pretrain import BertPreTrainer
 from eigen_nltk.eval import eval_ner, add_ner_pred, eval_classify, eval_entity_classify, add_classify_pred, eval_nre, \
-    add_nre_pred, add_entity_classify_pred
+    add_nre_pred, add_entity_classify_pred, eval_language_model, add_language_model_pred
 
 
 class BaseExperiment:
@@ -41,7 +41,6 @@ class BaseExperiment:
         self.callback_args = params['callback_args']
 
         self.ckp_path = params['model']['ckp_path']
-        self.max_len = params['model']["max_len"]
         self.model_name = params['model']['model_name']
 
         self.log_level = params['common'].get("log_level", "INFO")
@@ -59,6 +58,9 @@ class BaseExperiment:
         self.pred_dev = None
         self.pred_test = None
         self.fit_generator = fit_generator
+
+        if "max_len" in params['model'].keys():
+            self.max_len = params['model']["max_len"]
 
     @abstractmethod
     def _eval_func(self, data, pred, **kwargs):
@@ -287,22 +289,22 @@ class PreTrainExperiment(BaseExperiment):
         pass
 
 
-class TextGenerateExperiment(BaseExperiment):
+class LanguageModelExperiment(BaseExperiment):
 
     def __init__(self, params):
         super().__init__(params)
 
     def _load_estimator_func(self):
-        return TextGenerator.load_estimator(self.ckp_path)
+        return TransformerLM.load_estimator(self.ckp_path)
 
     def _create_estimator_func(self):
-        context = Context(self.vocab_path)
-        text_generator = TextGenerator(self.model_name, context, self.max_len, logger_level=self.log_level)
-        text_generator.create_model(self.model_args)
-        return text_generator
+        context = LMContext(self.vocab_path)
+        lm = TransformerLM(self.model_name, context, logger_level=self.log_level)
+        lm.create_model(self.model_args)
+        return lm
 
     def _eval_func(self, data, pred, **kwargs):
-        pass
+        return eval_language_model(data, pred)
 
     def _output_func(self, data, pred, **kwargs):
-        pass
+        return add_language_model_pred(data, pred)
