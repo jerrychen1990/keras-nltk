@@ -16,6 +16,7 @@ from eigen_nltk.open_ie import *
 from eigen_nltk.utils import jload
 
 
+@unittest.skip()
 class TestOpenIE(unittest.TestCase):
     @unittest.skip()
     def test_predict(self):

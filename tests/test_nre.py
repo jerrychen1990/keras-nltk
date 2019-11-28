@@ -48,6 +48,7 @@ test_data = [
 item = test_data[0]
 
 
+@unittest.skip()
 class TestNre(unittest.TestCase):
     # context = NreContext("../../pretrained_model/cased_L-12_H-768_A-12/vocab.json",
     #                      "../schema/rel_dict.json")

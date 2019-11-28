@@ -60,6 +60,7 @@ test_data = [
 item = test_data[0]
 
 
+@unittest.skip()
 class TestEntityClassify(unittest.TestCase):
     context = EntityClsContext("schema/vocab.txt", "schema/entity_classify_label_dict.json")
     @unittest.skip()

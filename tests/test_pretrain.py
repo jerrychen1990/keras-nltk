@@ -27,6 +27,8 @@ test_data = [
     'experimental results. Importantly, science does not claim to “prove” anything because scientific '
     'understandings are always subject to modification with further information.']
 
+
+@unittest.skip()
 class TestUtils(unittest.TestCase):
 
     @unittest.skip("reason for skipping")
