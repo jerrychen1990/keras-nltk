@@ -28,7 +28,7 @@ test_data = [
     'understandings are always subject to modification with further information.']
 
 
-@unittest.skip()
+@unittest.skip("past")
 class TestUtils(unittest.TestCase):
 
     @unittest.skip("reason for skipping")

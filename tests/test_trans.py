@@ -20,7 +20,7 @@ text_item = dict(
             "the show so they can keep us down and buy up the country cheap.")
 
 
-@unittest.skip()
+@unittest.skip("past")
 class TestUtils(unittest.TestCase):
     pass
     # context = Context("../../pretrained_model/multi_cased_L-12_H-768_A-12/vocab.json")

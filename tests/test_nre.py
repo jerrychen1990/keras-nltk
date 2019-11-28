@@ -48,7 +48,7 @@ test_data = [
 item = test_data[0]
 
 
-@unittest.skip()
+@unittest.skip("past")
 class TestNre(unittest.TestCase):
     # context = NreContext("../../pretrained_model/cased_L-12_H-768_A-12/vocab.json",
     #                      "../schema/rel_dict.json")
@@ -71,11 +71,12 @@ class TestNre(unittest.TestCase):
     #     nre_extractor.create_model(dict(use_bert=False, lstm_dim=4))
     #     rs = nre_extractor.predict_batch(test_data, batch_size=1)
     #     print(rs)
-    @unittest.skip()
+    @unittest.skip("past")
     def test_add_entity_tag(self):
         rs = add_entity_tag("“1363622”是七星彩第17127期的开奖号码，眼尖的购彩者看出这是十堰地区的手机号。", [10, 13], [1, 8])
         print(rs)
-    @unittest.skip()
+
+    @unittest.skip("past")
     def test_eval_nre(self):
         nre_pred = [[("Message-Topic", ('people', 'ENTITY', [35, 41]), ('destruction', 'ENTITY', [57, 68]))]]
         rs = eval_nre(test_data, nre_pred)
