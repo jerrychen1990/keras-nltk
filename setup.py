@@ -18,10 +18,10 @@ setup(
     version='0.0.1',
     packages=find_packages(exclude=['tests*']),
     package_dir={"": "."},
-    url='git@git.aipp.io:chenhao/person_text_extract.git',
+    url='git@git.aipp.io:EigenLab/eigen-nlp-toolkit.git',
     license='MIT',
     author='Chen Hao',
     author_email='chenhao@aidigger.com',
     zip_safe=True,
-    description='extract person schema from text',
+    description='nlp toolkit based on keras',
 )

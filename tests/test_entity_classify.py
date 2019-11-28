@@ -12,10 +12,9 @@
 """
 
 import unittest
+
 from eigen_nltk.entity_cliassify import *
-from eigen_nltk.constants import *
-from eigen_nltk.eval import eval_nre
-from eigen_nltk.utils import split_data2seq_list, jdumps, jload
+from eigen_nltk.utils import jdumps
 
 test_data = [
     {
