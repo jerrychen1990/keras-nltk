@@ -12,6 +12,7 @@
 """
 
 from collections import defaultdict
+from tqdm import tqdm
 
 from keras import Model
 from keras.layers import *
@@ -21,7 +22,7 @@ from keras.regularizers import l1_l2
 from eigen_nltk.core import ModelEstimator, Context
 from eigen_nltk.model_utils import pick_slice, get_seq_embedding_model, get_base_customer_objects
 from eigen_nltk.optimizer import get_optimizer_cls
-from eigen_nltk.trans import DataParser
+from eigen_nltk.trans import DataParser, add_entity_tag
 from eigen_nltk.utils import read_id_mapping, padding_seq, add_offset
 
 
@@ -127,31 +128,32 @@ class NreExtractor(ModelEstimator):
     # add more information to the origin data
     def _get_enhanced_data(self, data):
         short_data = self._get_short_data(data)
+        self.logger.info("get {0} short data from {1} origin data".format(len(short_data), len(data)))
         rs_data = []
-        for idx, item in enumerate(short_data):
+        for idx, item in tqdm(enumerate(short_data)):
             text = item['content']
-            token_input = self.data_parser.get_token_input(text)
-            char2token_mapping = token_input['char2token_mapping']
-            item.update(**token_input)
             rel_list = item['rel_list']
             offset = item['offset']
             for rel, (e1, et1, es1), (e2, et2, es2) in rel_list:
                 start1, end1 = add_offset(es1, -offset)
                 start2, end2 = add_offset(es2, -offset)
-                if min(start1, start2) < 0 or max(end1, end2) >= len(char2token_mapping):
+                if min(start1, start2) < 0 or max(end1, end2) > len(text):
                     continue
 
-                start1, end1 = char2token_mapping[start1], char2token_mapping[end1]
-                start2, end2 = char2token_mapping[start2], char2token_mapping[end2]
                 if 0 <= start1 and 0 <= start2 and end1 < self.max_len - 2 and end2 < self.max_len - 2:
                     tmp_item = copy.deepcopy(item)
-                    tmp_item["e1"] = (e1, et1, es1, (start1, end1))
-                    tmp_item["e2"] = (e2, et2, es2, (start2, end2))
-                    tmp_item = add_entity_tag(tmp_item, [start1, end1, start2, end2])
+                    span1 = (start1, end1)
+                    span2 = (start2, end2)
+                    tmp_item["e1"] = (e1, et1, es1, span1)
+                    tmp_item["e2"] = (e2, et2, es2, span2)
+                    tmp_text = add_entity_tag(text, [span1, span2])
+                    token_input = self.data_parser.get_token_input(tmp_text)
+                    tmp_item.update(**token_input)
                     if rel:
                         rel_output = self.context.rel2id[rel]
                         tmp_item['rel_output'] = rel_output
                     rs_data.append(tmp_item)
+        self.logger.info("get {0} enhanced data from {1} origin data".format(len(rs_data), len(data)))
         return rs_data
 
     def _get_short_data(self, data):
@@ -162,7 +164,7 @@ class NreExtractor(ModelEstimator):
 
         :param dev_data:
         :param train_data: [{"title":"test", "content":"The band performs with a high level of musicality , energy and spirit while combining sensitive group interplay with dynamic solo improvisations.",
-                            "rek_list":[["Other",["band","ENTITY",[4,8]],["musicality","ENTITY",[39,49]]]]}]
+                            "rel_list":[["Other",["band","ENTITY",[4,8]],["musicality","ENTITY",[39,49]]]]}]
         :param train_args:
         :return: model
         """
@@ -182,25 +184,3 @@ class NreExtractor(ModelEstimator):
         return rel_list
 
 
-
-
-E1_START = ['[s1]', 10]
-E1_END = ['[e1]', 11]
-E2_START = ['[s2]', 12]
-E2_END = ['[e2]', 13]
-
-TAG_LIST = [E1_START, E1_END, E2_START, E2_END]
-
-
-def add_entity_tag(item, idx_list):
-    assert len(idx_list) == len(TAG_LIST)
-    token = item['token']
-    x = item['x']
-    offset = 0
-    for idx, tag in sorted(zip(idx_list, TAG_LIST), key=lambda x: x[0]):
-        true_idx = idx + offset
-        token.insert(true_idx, tag[0])
-        x.insert(true_idx, tag[1])
-        offset += 1
-    item['seg'] = item['seg'] + [0] * 4
-    return item

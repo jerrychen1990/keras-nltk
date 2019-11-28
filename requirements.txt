@@ -1,4 +1,5 @@
 keras-bert==0.78.0
+keras-rectified-adam
 keras
 keras-contrib
 frozendict

@@ -23,15 +23,12 @@ from datetime import datetime
 from configparser import ConfigParser
 from collections import defaultdict, OrderedDict
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')
+
 
 # get logger which output ot standard output
 def get_logger(logger_name, level="INFO"):
     logger = logging.getLogger(logger_name)
-    console_handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s]:%(message)s", '%Y-%m-%d %H:%M:%S')
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(level)
-    logger.addHandler(console_handler)
     logger.setLevel(level)
     return logger
 
@@ -134,6 +131,8 @@ def split_token(token_list, max_len, pattern=r"，|。|；|\.|,|;|\?|!"):
             else:
                 while token_list[end].startswith("##"):
                     end -= 1
+                if end == beg:
+                    end = beg + max_len
                 rs_list.append(token_list[beg:end])
             beg = end
         return rs_list
@@ -195,6 +194,14 @@ def jdump(obj, fp):
     return json.dump(obj, fp, ensure_ascii=False, indent=4, cls=PythonObjectEncoder)
 
 
+def jdump_lines(obj, fp):
+    content = "\n".join([json.dumps(e, ensure_ascii=False) for e in obj])
+    if isinstance(fp, str):
+        fp = codecs.open(fp, 'w', 'utf8')
+    with fp as fp:
+        fp.write(content)
+
+
 # my json load
 def jload(fp):
     if isinstance(fp, str):
@@ -230,6 +237,18 @@ def read_config(config_path):
     cfg_dict = cfg2dict(cfg)
     cfg_dict = eval_param(cfg_dict)
     return cfg_dict
+
+
+# find all file path which path match pattern path_pattern
+def get_path_list(path_pattern):
+    path_list = []
+    dir_path = os.path.dirname(path_pattern)
+    file_pattern = re.compile(os.path.basename(path_pattern))
+    for root, dirs, files in os.walk(dir_path):
+        for f in files:
+            if re.match(file_pattern, f):
+                path_list.append(os.path.join(root, f))
+    return path_list
 
 
 # print info with stars surround
@@ -309,18 +328,18 @@ def sample_data(data, fraction=None, label_key=None):
 
 
 # find all the start index and end index of text in seq with char level
-def find_all_char(seq, text, overlap=False, ignore_case=False):
+def find_all_char(content, to_find, overlap=False, ignore_case=False):
     rs_list = []
     if ignore_case:
-        seq = seq.lower()
-        text = text.lower()
-    if not text:
+        content = content.lower()
+        to_find = to_find.lower()
+    if not to_find:
         return rs_list
-    text_len = len(text)
+    text_len = len(to_find)
 
     beg = 0
     while True:
-        b = seq.find(text, beg)
+        b = content.find(to_find, beg)
         if b == -1:
             return rs_list
         e = b + text_len
@@ -351,10 +370,16 @@ def get_now_str(fmt="%Y-%m-%d-%H:%M:%S"):
 
 
 def get_distribution(l, key=lambda x: x):
-    rs_dict = defaultdict(int)
+    group_by_dict = group_by(l, key)
+    rs_dict = {k: len(v) for k, v in group_by_dict.items()}
+    return rs_dict
+
+
+def group_by(l, key=lambda x: x):
+    rs_dict = defaultdict(list)
     for i in l:
-        rs_dict[key(i)] += 1
-    return OrderedDict(sorted(rs_dict.items(), key=lambda x: x[1], reverse=True))
+        rs_dict[key(i)].append(i)
+    return OrderedDict(sorted(rs_dict.items(), key=lambda x: len(x[1]), reverse=True))
 
 
 def get_major_element(l):
@@ -371,3 +396,17 @@ def list_find(l, ele):
         return l.index(ele)
     except Exception as e:
         return -1
+
+
+def split_text_by_sep(text, sep_list):
+    idx_dict = {k: find_all_char(text, k) for k in sep_list}
+    idx_list = flat([(k, s) for s in span_list] for k, span_list in idx_dict.items())
+    idx_list = sorted(idx_list, key=lambda x: x[1][0])
+    beg = 0
+    rs_list = []
+    for k, (s, e) in idx_list:
+        rs_list.append(text[beg:s])
+        rs_list.append(k)
+        beg = e
+    rs_list.append(text[beg:])
+    return rs_list

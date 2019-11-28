@@ -12,8 +12,10 @@
 """
 from keras.callbacks import TensorBoard, EarlyStopping
 from abc import abstractmethod
+from eigen_nltk.callback import ModelSaver
 from eigen_nltk.core import Context
-from eigen_nltk.utils import print_info, jdumps, read_json_data, get_now_str, jdump, create_dir
+from eigen_nltk.utils import print_info, jdumps, read_json_data, get_now_str, jdump, create_dir, get_path_list, \
+    jdump_lines, sample_data_by_num
 from eigen_nltk.entity_cliassify import EntityClsEstimator, EntityClsContext
 from eigen_nltk.language_model import LMContext, TransformerLM
 from eigen_nltk.ner import NerExtractor, NerContext
@@ -29,10 +31,11 @@ class BaseExperiment:
         print_info("job param:")
         print(jdumps(params))
 
-        self.train_data_path_list = params['data']['train_data_path'].split(",")
         self.dev_data_path_list = params['data']['dev_data_path'].split(",")
         self.test_data_path_list = params['data']['test_data_path'].split(",")
         self.submit_data_path_list = params['data'].get('submit_data_path', "")
+        self.train_path_pattern = params['data']['train_path_pattern']
+
         self.vocab_path = params['schema']['vocab_path']
 
         self.model_args = params['model_args']
@@ -50,17 +53,18 @@ class BaseExperiment:
         self.is_saving = params['common'].get("is_saving", True)
 
         self.model_path = "model/{}".format(self.model_name)
-        self.train_data = read_json_data(self.train_data_path_list)
-        self.dev_data = read_json_data(self.dev_data_path_list)
-        self.test_data = read_json_data(self.test_data_path_list)
+
         self.estimator = None
         self.pred_train = None
         self.pred_dev = None
         self.pred_test = None
+        self.true_train = None
+        self.true_dev = None
+        self.true_test = None
+
         self.fit_generator = fit_generator
 
-        if "max_len" in params['model'].keys():
-            self.max_len = params['model']["max_len"]
+        self.max_len = params['model'].get("max_len", None)
 
     @abstractmethod
     def _eval_func(self, data, pred, **kwargs):
@@ -88,6 +92,34 @@ class BaseExperiment:
             self.estimator = self._create_estimator_func()
         print_info("estimator initialize phrase end")
 
+    def _read_data(self):
+        print_info("reading data phrase start")
+        self.train_data_path_list = get_path_list(self.train_path_pattern)
+        print_info("reading train data from :{}".format(self.train_data_path_list))
+        self.train_data = read_json_data(self.train_data_path_list)
+        print_info("got {} train data".format(len(self.train_data)))
+
+        print_info("reading dev data from :{}".format(self.dev_data_path_list))
+        self.dev_data = read_json_data(self.dev_data_path_list)
+        print_info("got {} dev data".format(len(self.dev_data)))
+
+        print_info("reading test data from :{}".format(self.test_data_path_list))
+        self.test_data = read_json_data(self.test_data_path_list)
+        print_info("got {} test data".format(len(self.test_data)))
+        print_info("reading data phrase end")
+
+    def preprocess_data(self):
+        print_info("preprocess train data")
+        enhanced_train_data = self.estimator._get_enhanced_data(self.train_data)
+        cache_train_data = self.estimator._get_cache_data(enhanced_train_data)
+        print_info("got {} cache train data".format(len(cache_train_data)))
+        jdump_lines(cache_train_data, "cache/{0}-train.txt".format(self.model_name))
+        print_info("preprocess dev data")
+        enhanced_dev_data = self.estimator._get_enhanced_data(self.dev_data)
+        cache_dev_data = self.estimator._get_cache_data(enhanced_dev_data)
+        print_info("got {} cache dev data".format(len(cache_dev_data)))
+        jdump_lines(cache_train_data, "cache/{0}-dev.txt".format(self.model_name))
+
     def train_model(self):
         print_info("training phrase start")
         if not self.estimator:
@@ -97,21 +129,32 @@ class BaseExperiment:
         tensorboard_callback = TensorBoard(log_dir='./tensorboard/{0}-{1}'.format(self.model_name, get_now_str()))
         early_stop = EarlyStopping(**self.callback_args, restore_best_weights=True)
         callbacks = [tensorboard_callback, early_stop]
+
+        save_epoch_interval = self.train_args.get("save_epoch_ckpt", -1)
+
+        if save_epoch_interval > 0:
+            model_saver = ModelSaver(self.estimator, save_epoch_interval=save_epoch_interval, overwrite=False)
+            callbacks.append(model_saver)
+
         self.train_args.update(callbacks=callbacks)
         if self.fit_generator:
-            self.estimator.train_model_generator(self.train_data, self.dev_data, self.train_args, self.compile_args)
+            self.estimator.train_model_generator(self.train_data, self.dev_data, self.train_args,
+                                                 self.compile_args)
         else:
             self.estimator.train_model(self.train_data, self.dev_data, self.train_args, self.compile_args)
         print_info("training phrase finish")
 
-    def do_predict(self, show_detail=False, verbose=1):
+    def do_predict(self, show_detail=False, verbose=1, max_predict_num=10000):
         print_info("predicting phrase start")
         print_info("predict result on train set:")
-        self.pred_train = self.estimator.predict_batch(self.train_data, show_detail=show_detail, verbose=verbose)
+        self.true_train = sample_data_by_num(self.train_data, max_predict_num)
+        self.pred_train = self.estimator.predict_batch(self.true_train, show_detail=show_detail, verbose=verbose)
         print_info("predict result on dev set:")
-        self.pred_dev = self.estimator.predict_batch(self.dev_data, show_detail=show_detail, verbose=verbose)
-        print_info("predict result on test set:")
-        self.pred_test = self.estimator.predict_batch(self.test_data, show_detail=show_detail, verbose=verbose)
+        self.true_dev = sample_data_by_num(self.dev_data, max_predict_num)
+        self.pred_dev = self.estimator.predict_batch(self.true_dev, show_detail=show_detail, verbose=verbose)
+        # print_info("predict result on test set:")
+        # self.true_test = sample_data_by_num(self.test_data, max_predict_num)
+        # self.pred_test = self.estimator.predict_batch(self.true_test, show_detail=show_detail, verbose=verbose)
         print_info("predicting phrase end")
 
     def do_eval(self):
@@ -119,36 +162,36 @@ class BaseExperiment:
         create_dir("eval/")
 
         print_info("eval result on train set:")
-        eval_rs = self._eval_func(self.train_data, self.pred_train)
+        eval_rs = self._eval_func(self.true_train, self.pred_train)
         print(jdumps(eval_rs))
         jdump(eval_rs, "eval/{}_train.json".format(self.model_name))
 
         print_info("eval result on dev set:")
-        eval_rs = self._eval_func(self.dev_data, self.pred_dev)
+        eval_rs = self._eval_func(self.true_dev, self.pred_dev)
         print(jdumps(eval_rs))
         jdump(eval_rs, "eval/{}_dev.json".format(self.model_name))
 
-        print_info("eval result on test set:")
-        eval_rs = self._eval_func(self.test_data, self.pred_test)
-        print(jdumps(eval_rs))
-        jdump(eval_rs, "eval/{}_test.json".format(self.model_name))
-        print_info("eval phrase end")
+        # print_info("eval result on test set:")
+        # eval_rs = self._eval_func(self.true_test, self.pred_test)
+        # print(jdumps(eval_rs))
+        # jdump(eval_rs, "eval/{}_test.json".format(self.model_name))
+        # print_info("eval phrase end")
 
     def do_output(self):
         print_info("output phrase start")
         create_dir("output/")
 
         print_info("output result on train set:")
-        output_data = self._output_func(self.train_data, self.pred_train)
+        output_data = self._output_func(self.true_train, self.pred_train)
         jdump(output_data, 'output/{}_train.json'.format(self.model_name))
 
         print_info("output result on dev set:")
-        output_data = self._output_func(self.dev_data, self.pred_dev)
+        output_data = self._output_func(self.true_dev, self.pred_dev)
         jdump(output_data, 'output/{}_dev.json'.format(self.model_name))
 
-        print_info("output result on test set:")
-        output_data = self._output_func(self.test_data, self.pred_test)
-        jdump(output_data, 'output/{}_test.json'.format(self.model_name))
+        # print_info("output result on test set:")
+        # output_data = self._output_func(self.true_test, self.pred_test)
+        # jdump(output_data, 'output/{}_test.json'.format(self.model_name))
 
         print_info("output phrase start")
 
@@ -164,6 +207,8 @@ class BaseExperiment:
         print_info("job start")
 
         self.initialize_estimator()
+        self._read_data()
+        # self.preprocess_data()
         if self.is_train:
             self.train_model()
         if self.is_saving:
@@ -181,8 +226,8 @@ class BaseExperiment:
 
 class NerExperiment(BaseExperiment):
 
-    def __init__(self, params):
-        super().__init__(params)
+    def __init__(self, params, fit_generator=True):
+        super().__init__(params, fit_generator)
         self.ner_dict_path = params['schema']['ner_dict_path']
         self.annotation_type = params['schema']['annotation_type']
 

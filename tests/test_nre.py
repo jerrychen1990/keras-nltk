@@ -70,6 +70,9 @@ class TestNre(unittest.TestCase):
     #     nre_extractor.create_model(dict(use_bert=False, lstm_dim=4))
     #     rs = nre_extractor.predict_batch(test_data, batch_size=1)
     #     print(rs)
+    def test_add_entity_tag(self):
+        rs = add_entity_tag("“1363622”是七星彩第17127期的开奖号码，眼尖的购彩者看出这是十堰地区的手机号。", [10, 13], [1, 8])
+        print(rs)
 
     def test_eval_nre(self):
         nre_pred = [[("Message-Topic", ('people', 'ENTITY', [35, 41]), ('destruction', 'ENTITY', [57, 68]))]]

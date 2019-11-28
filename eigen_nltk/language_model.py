@@ -65,10 +65,11 @@ class TransformerLM(ModelEstimator):
         self.logger.info("get {0} enhanced data from {1} origin data".format(len(enhance_data), len(data)))
         return enhance_data
 
-    def _get_model_train_input(self, train_data, **kwargs):
+    def _get_model_train_input(self, train_data, _max_len=128, **kwargs):
         x = []
         y = []
         max_len = max(len(e['x']) for e in train_data)
+        max_len = min(max_len, _max_len)
         for item in train_data:
             x.append(padding_seq(item['x'], max_len))
             if 'y' in item.keys():

@@ -12,6 +12,7 @@
 """
 from keras_bert.optimizers import AdamWarmup
 from keras.optimizers import Adam, SGD, Nadam, Adamax, RMSprop, TFOptimizer, Adadelta, Adagrad, Optimizer
+from keras_radam import RAdam
 import keras.backend as K
 import math
 
@@ -341,7 +342,8 @@ OPTIMIZER_DICT = {
     'tfoptimizer': TFOptimizer,
     "adam_warmup": AdamWarmup,
     "bert_adam_warmup": BertAdamWarmup,
-    "bert_adam": BertAdam
+    "bert_adam": BertAdam,
+    "radam": RAdam
 }
 
 

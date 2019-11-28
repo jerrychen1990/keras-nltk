@@ -13,18 +13,19 @@
 
 import codecs
 import copy
-import pickle
 import math
-from abc import abstractmethod, ABC
+import pickle
+from abc import abstractmethod
 
 import numpy as np
 from keras.models import load_model as load_keras_model
 from keras.utils.training_utils import multi_gpu_model
-from keras_bert import Tokenizer
 
+from eigen_nltk.tokenizer import MyTokenizer
 from eigen_nltk.decorator import ensure_file_path
+from eigen_nltk.constants import SPECIAL_TOKEN_LIST
 from eigen_nltk.model_utils import VALID_FIT_GENERATOR_KWARGS, get_base_customer_objects
-from eigen_nltk.utils import get_logger
+from eigen_nltk.utils import get_logger, jload
 
 
 class Context(object):
@@ -38,7 +39,7 @@ class Context(object):
                     self.token2id[line] = len(self.token2id)
                     self.vocab_list.append(line)
         self.id2token = {int(v): k for k, v in self.token2id.items()}
-        self.tokenizer = Tokenizer(self.token2id)
+        self.tokenizer = MyTokenizer(self.token2id, SPECIAL_TOKEN_LIST)
         self.vocab_size = len(self.id2token)
 
     def get_model_args(self):
@@ -64,6 +65,7 @@ class BaseEstimator(object):
 
 class ModelEstimator(BaseEstimator):
     customer_objects = get_base_customer_objects()
+    cache_keys = ['x']
 
     def __init__(self, name, data_parser, logger_level="INFO"):
         super().__init__(name, logger_level)
@@ -76,9 +78,9 @@ class ModelEstimator(BaseEstimator):
 
     def __getstate__(self):
         odict = copy.copy(self.__dict__)
-        del odict['model']
-        del odict['logger']
-        del odict['training_model']
+        for key in ['model', 'logger', 'training_model']:
+            if key in odict.keys():
+                del odict[key]
         return odict
 
     def __setstate__(self, state):
@@ -96,7 +98,7 @@ class ModelEstimator(BaseEstimator):
     def save_model(self, path):
         path = path + ".h5"
         self.logger.info("saving model to path:{}".format(path))
-        self.model.save(path)
+        self.model.save(path, include_optimizer=False)
 
     def save_estimator(self, path):
         self.logger.info("saving extractor to {}".format(path))
@@ -148,20 +150,38 @@ class ModelEstimator(BaseEstimator):
         self.training_model.fit(x, y, validation_data=[x_dev, y_dev], **train_args)
         return self.model
 
+    def _generate_train_input(self, data, batch_size, **kwargs):
+        np.random.shuffle(data)
+        for idx in range(0, len(data), batch_size):
+            batch_data = data[idx: idx + batch_size]
+            yield self._get_model_train_input(batch_data, **kwargs)
+
     def _get_generator(self, train_data, batch_size, **kwargs):
-        data = copy.copy(train_data)
         while True:
-            np.random.shuffle(data)
-            for idx in range(0, len(data), batch_size):
-                batch_data = data[idx: idx + batch_size]
-                yield self._get_model_train_input(batch_data, **kwargs)
+            generator = self._generate_train_input(train_data, batch_size, **kwargs)
+            for i in generator:
+                yield i
+
+    def _get_generator_from_path(self, data_path_list, batch_size, **kwargs):
+        while True:
+            for data_path in data_path_list:
+                self.logger.info("reading train data from:{}".format(data_path))
+                data = jload(data_path)
+                enhanced_data = self._get_enhanced_data(data)
+                gen = self._generate_train_input(enhanced_data, batch_size, **kwargs)
+                for batch in gen:
+                    yield batch
 
     def train_model_generator(self, train_data, dev_data, train_args, compile_args):
         self.logger.info("training model with generator")
         self._pre_train(train_args, compile_args)
         batch_size = train_args['batch_size']
+        self.logger.info("enhancing train data")
         enhanced_train_data = self._get_enhanced_data(train_data)
+
+        self.logger.info("enhancing dev data")
         enhanced_dev_data = self._get_enhanced_data(dev_data)
+
         kwargs = dict((k, v) for k, v in train_args.items() if k in VALID_FIT_GENERATOR_KWARGS)
         validation_steps = int(math.ceil(len(enhanced_dev_data) / batch_size))
 
@@ -170,6 +190,30 @@ class ModelEstimator(BaseEstimator):
             validation_data=self._get_generator(train_data=enhanced_dev_data, batch_size=batch_size),
             validation_steps=validation_steps,
             **kwargs)
+
+    #
+    # def _get_stream_generator(self, data_path_list, batch_size, **kwargs):
+    #     while True:
+    #         generator =
+    #
+    #
+    #         for data_path in data_path_list:
+    #             data = jload(data_path)
+    #             enhanced_data = self._get_enhanced_data(data)
+    #             gen = self._generate_train_input(enhanced_data, batch_size, **kwargs)
+    #             for batch in gen:
+    #                 yield batch
+    #
+    # def train_model_stream_generator(self, train_path, dev_path, train_args, compile_args):
+    #     self.logger.info("training model with stream generator")
+    #     self._pre_train(train_args, compile_args)
+    #     batch_size = train_args['batch_size']
+    #     kwargs = dict((k, v) for k, v in train_args.items() if k in VALID_FIT_GENERATOR_KWARGS)
+    #     self.training_model.fit_generator(
+    #         generator=self._get_stream_generator(data_path=train_path, batch_size=batch_size),
+    #         validation_data=self._get_generator(train_data=enhanced_dev_data, batch_size=batch_size),
+    #         validation_steps=validation_steps,
+    #         **kwargs)
 
     def _get_raw_predict(self, data, batch_size=64, verbose=1):
         enhanced_data = self._get_enhanced_data(data)
@@ -180,9 +224,11 @@ class ModelEstimator(BaseEstimator):
     def predict_batch(self, data, batch_size=64, verbose=1, show_detail=False, **kwargs):
         super().predict_batch(data, **kwargs)
         enhanced_data = self._get_enhanced_data(data)
-        x = self._get_model_test_input(enhanced_data)
-        pred_data = self.model.predict(x, batch_size=batch_size, verbose=verbose)
-        rs_data = self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail)
+        rs_data = [[]] * len(data)
+        if enhanced_data:
+            x = self._get_model_test_input(enhanced_data)
+            pred_data = self.model.predict(x, batch_size=batch_size, verbose=verbose)
+            rs_data = self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail)
         return rs_data
 
     @abstractmethod
@@ -200,6 +246,9 @@ class ModelEstimator(BaseEstimator):
     def _get_model_test_input(self, test_data, **kwargs):
         x, y = self._get_model_train_input(test_data)
         return x
+
+    def _get_cache_data(self, data):
+        return [{k: e[k] for k in self.cache_keys} for e in data]
 
 
 class RuleEstimator(BaseEstimator):

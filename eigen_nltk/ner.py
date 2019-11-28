@@ -11,6 +11,7 @@
 -------------------------------------------------
 """
 import math
+from tqdm import tqdm
 from collections import defaultdict
 from itertools import groupby
 
@@ -24,7 +25,7 @@ from eigen_nltk.constants import *
 from eigen_nltk.core import ModelEstimator, Context
 from eigen_nltk.model_utils import CRF, get_seq_embedding_model, get_base_customer_objects
 from eigen_nltk.optimizer import get_optimizer_cls
-from eigen_nltk.trans import DataParser
+from eigen_nltk.trans import DataParser, add_entity_tag
 from eigen_nltk.utils import read_id_mapping, padding_seq, add_offset, flat, convert_span
 
 
@@ -56,6 +57,7 @@ def get_ner_customer_objects():
 
 class NerExtractor(ModelEstimator):
     customer_objects = get_ner_customer_objects()
+    cache_keys = ['x', 'ner_output']
 
     def __init__(self, name, context, max_len, logger_level="INFO"):
         assert isinstance(context, NerContext)
@@ -122,18 +124,19 @@ class NerExtractor(ModelEstimator):
 
     def _get_enhanced_data(self, data):
         short_data = self._get_short_data(data)
+        self.logger.info("get {0} short data from {1} origin data".format(len(short_data), len(data)))
         enhance_data = []
 
-        for idx, item in enumerate(short_data):
+        for idx, item in tqdm(enumerate(short_data)):
             tmp_item = copy.copy(item)
-
-            text = item['content']
-            token_input = self.data_parser.get_token_input(text)
+            content = item['content']
+            offset = item['offset']
+            prefix = item.get("prefix", None)
+            token_input = self.data_parser.get_token_input(content, prefix)
             token = token_input['token']
             char2token = token_input['char2token_mapping']
             tmp_item.update(**token_input)
             if "entity_list" in item.keys():
-                offset = item['offset']
                 entity_list = item['entity_list']
                 entity_list = [(e[0], e[1], [add_offset(span, -offset) for span in e[2]]) for e in entity_list]
                 ner_output = self.data_parser.get_ner_output(token, entity_list, char2token, self.ner_annotation_type)
@@ -149,7 +152,7 @@ class NerExtractor(ModelEstimator):
         pred_hard = np.argmax(pred_data, axis=-1)
         if show_detail:
             print("raw ner output:\n{}".format(pred_hard))
-        entity_list_pred = [self.data_parser.get_ner_from_output(item['text'], pred, item['token2char_mapping']) for
+        entity_list_pred = [self.data_parser.get_ner_from_output(item['content'], pred, item['token2char_mapping']) for
                             item, pred in zip(enhanced_data, pred_hard)]
         merged_entity_list_pred = merge_entity_lists(entity_list_pred, enhanced_data)
         return merged_entity_list_pred
@@ -228,15 +231,15 @@ class EntityPairNerExtractor(NerExtractor):
     def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False):
         entity_list_pred = []
         for item, pred in zip(enhanced_data, pred_data):
-            token_len = len(item['token'])
+            token_len = len(item['mapping_token'])
             e1_path_list = get_max_ner_pair(pred[:, :2], 0, 0, token_len)[1]
             e2_path_list = get_max_ner_pair(pred[:, 2:], 0, 0, token_len)[1]
             entity_idx_path_list = e1_path_list + e2_path_list
             if show_detail:
                 print("raw prob output:\n{}".format(pred))
                 print("entity token idx:{}".format(entity_idx_path_list))
-            entity_pred = self.data_parser.get_ner_from_pair_output(item['text'], entity_idx_path_list,
-                                                                    item['token2char_mapping'])
+            entity_pred = self.data_parser.get_ner_from_pair_output(item['content'], entity_idx_path_list,
+                                                                    item['token2char_mapping'], item['token_offset'])
             entity_list_pred.append(entity_pred)
         # merged_entity_list_pred = merge_entity_lists(entity_list_pred, enhanced_data)
         return entity_list_pred
@@ -294,14 +297,15 @@ class NerDataParser(DataParser):
         return ner_out
 
     def get_ner_from_token_span(self, text, ner_token_span_list, token2char):
-        ner_char_span_list = [(ner_type, convert_span(span, token2char)) for ner_type, span in ner_token_span_list]
+        ner_char_span_list = [(ner_type, convert_span(span, token2char)) for ner_type, span
+                              in ner_token_span_list]
         ner_char_span_list = [e for e in ner_char_span_list if e[1]]
 
         entity_list = []
         for ner_type, (start, end) in ner_char_span_list:
-            while text[start] == " ":
+            while text[start] == " " and start < len(text):
                 start += 1
-            while text[end - 1] == " ":
+            while text[end - 1] == " " and end > 0:
                 end -= 1
             entity_list.append((text[start:end], ner_type, (start, end)))
         return entity_list

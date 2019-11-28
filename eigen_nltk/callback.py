@@ -16,7 +16,7 @@ from eigen_nltk.utils import jdump, jdumps, get_logger
 
 class MetricEvaluator(Callback):
     def __init__(self, extractor, dev_data, eval_func, eval_args={}, key_metric_path=['micro_avg', 'f1'],
-                 is_store=True, model_path="model",eval_path="eval"):
+                 is_store=True, model_path="model", eval_path="eval"):
         self.eval_list = []
         self.best_metric = 0.
         self.best_eval_rs = None
@@ -52,3 +52,21 @@ class MetricEvaluator(Callback):
                 best_model_path = "{0}/{1}".format(self.model_path, self.model_name)
                 self.extractor.save_estimator(best_model_path)
                 jdump(cur_eval, open("{0}/{1}_dev.json".format(self.eval_path, self.model_name), 'w'))
+
+
+class ModelSaver(Callback):
+    def __init__(self, extractor, save_epoch_interval=1, overwrite=True):
+        self.overwrite = overwrite
+        self.extractor = extractor
+        self.save_epoch_interval = save_epoch_interval
+        self.model_name = self.extractor.model_name
+        self.logger = get_logger(self.model_name)
+
+    def on_epoch_end(self, epoch, show=True, logs=None):
+        epoch += 1
+        if epoch % self.save_epoch_interval == 0:
+            self.logger.info("current epoch:{}".format(epoch))
+            model_path = "{0}/{1}".format("model/ckpt", self.model_name)
+            if not self.overwrite:
+                model_path = model_path + "-{}".format(epoch)
+            self.extractor.save_estimator(model_path)

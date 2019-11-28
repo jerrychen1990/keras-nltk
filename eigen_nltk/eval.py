@@ -96,6 +96,8 @@ def add_ner_pred(data, pred, contain_span=True):
 
         rs = dict(id=e['id'], content=e['content'], statistic=statistic,
                   entity_list=e['entity_list'], ner_pred=p, ner_fp=fp, ner_fn=fn, ner_tp=tp)
+        if "given_entity_list" in e.keys():
+            rs.update(given_entity_list=e['given_entity_list'])
         rs_list.append(rs)
     return rs_list
 
@@ -111,7 +113,6 @@ def add_nre_pred(data, pred, contain_span=True):
         fn = [list(x) for x in t_set - p_set]
         tp = [list(x) for x in p_set & t_set]
         statistic = "tp_num:{0}, fp_num:{1}, fn_num:{2}".format(len(tp), len(fp), len(fn))
-
         rs = dict(id=e['id'], content=e['content'], statistic=statistic,
                   rel_list=e['rel_list'], nre_pred=p, nre_fp=fp, nre_fn=fn, nre_tp=tp)
         rs_list.append(rs)

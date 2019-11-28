@@ -23,9 +23,8 @@ from keras_contrib.losses import crf_loss
 from keras_contrib.metrics import crf_marginal_accuracy
 from keras_contrib.metrics import crf_viterbi_accuracy
 from keras_contrib.utils.test_utils import to_tuple
-from keras_transformer import get_model
 
-from eigen_nltk.optimizer import BertAdamWarmup, BertAdam
+from eigen_nltk.optimizer import BertAdamWarmup, BertAdam, RAdam
 
 
 def freeze_bert(bert_model, freeze_layer_num):
@@ -642,7 +641,7 @@ class CRF(Layer):
 
 def get_base_customer_objects():
     customer_objects = get_custom_objects()
-    customer_objects.update(BertAdamWarmup=BertAdamWarmup, BertAdam=BertAdam)
+    customer_objects.update(BertAdamWarmup=BertAdamWarmup, BertAdam=BertAdam, RAdam=RAdam)
     return customer_objects
 
 
