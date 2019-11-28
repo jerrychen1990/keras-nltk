@@ -1,5 +1,6 @@
 keras-bert==0.78.0
 keras-rectified-adam
-keras
+keras==2.2.4
 keras-contrib
 frozendict
+tqdm

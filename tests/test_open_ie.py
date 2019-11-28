@@ -17,7 +17,7 @@ from eigen_nltk.utils import jload
 
 
 class TestOpenIE(unittest.TestCase):
-
+    @unittest.skip()
     def test_predict(self):
         data = jload("../data/sample.json")
         data = data[1:2]
