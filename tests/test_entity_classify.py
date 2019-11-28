@@ -57,17 +57,17 @@ test_data = [
     },
 ]
 
-item = test_data[0]
+# item = test_data[0]
 
 
-@unittest.skip("past")
-class TestEntityClassify(unittest.TestCase):
-    context = EntityClsContext("schema/vocab.txt", "schema/entity_classify_label_dict.json")
-    @unittest.skip("past")
-    def test_enhance_data(self):
-        nre_extractor = EntityClsEstimator("test_entity_classify_estimator", self.context, 50)
-        rs = nre_extractor._get_enhanced_data(test_data)
-        print(jdumps(rs))
+# @unittest.skip("past")
+# class TestEntityClassify(unittest.TestCase):
+    # context = EntityClsContext("schema/vocab.txt", "schema/entity_classify_label_dict.json")
+    # @unittest.skip("past")
+    # def test_enhance_data(self):
+    #     nre_extractor = EntityClsEstimator("test_entity_classify_estimator", self.context, 50)
+    #     rs = nre_extractor._get_enhanced_data(test_data)
+    #     print(jdumps(rs))
 
     # def test_model_input(self):
     #     nre_extractor = NreExtractor("test_nre_extractor", self.context, 50)
@@ -85,7 +85,7 @@ class TestEntityClassify(unittest.TestCase):
     # def test_eval_nre(self):
     #     nre_pred = [[("Message-Topic", ('people', 'ENTITY', [35, 41]), ('destruction', 'ENTITY', [57, 68]))]]
     #     rs = eval_nre(test_data, nre_pred)
-        print(rs)
+    #     print(rs)
     #
     # def test_get_short_data(self):
     #     data = [{'id': '1492',

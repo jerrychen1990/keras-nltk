@@ -152,9 +152,9 @@ class BaseExperiment:
         print_info("predict result on dev set:")
         self.true_dev = sample_data_by_num(self.dev_data, max_predict_num)
         self.pred_dev = self.estimator.predict_batch(self.true_dev, show_detail=show_detail, verbose=verbose)
-        # print_info("predict result on test set:")
-        # self.true_test = sample_data_by_num(self.test_data, max_predict_num)
-        # self.pred_test = self.estimator.predict_batch(self.true_test, show_detail=show_detail, verbose=verbose)
+        print_info("predict result on test set:")
+        self.true_test = sample_data_by_num(self.test_data, max_predict_num)
+        self.pred_test = self.estimator.predict_batch(self.true_test, show_detail=show_detail, verbose=verbose)
         print_info("predicting phrase end")
 
     def do_eval(self):
@@ -171,11 +171,11 @@ class BaseExperiment:
         print(jdumps(eval_rs))
         jdump(eval_rs, "eval/{}_dev.json".format(self.model_name))
 
-        # print_info("eval result on test set:")
-        # eval_rs = self._eval_func(self.true_test, self.pred_test)
-        # print(jdumps(eval_rs))
-        # jdump(eval_rs, "eval/{}_test.json".format(self.model_name))
-        # print_info("eval phrase end")
+        print_info("eval result on test set:")
+        eval_rs = self._eval_func(self.true_test, self.pred_test)
+        print(jdumps(eval_rs))
+        jdump(eval_rs, "eval/{}_test.json".format(self.model_name))
+        print_info("eval phrase end")
 
     def do_output(self):
         print_info("output phrase start")
@@ -189,9 +189,9 @@ class BaseExperiment:
         output_data = self._output_func(self.true_dev, self.pred_dev)
         jdump(output_data, 'output/{}_dev.json'.format(self.model_name))
 
-        # print_info("output result on test set:")
-        # output_data = self._output_func(self.true_test, self.pred_test)
-        # jdump(output_data, 'output/{}_test.json'.format(self.model_name))
+        print_info("output result on test set:")
+        output_data = self._output_func(self.true_test, self.pred_test)
+        jdump(output_data, 'output/{}_test.json'.format(self.model_name))
 
         print_info("output phrase start")
 
