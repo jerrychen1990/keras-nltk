@@ -15,6 +15,7 @@ from keras.layers import *
 from keras.losses import sparse_categorical_crossentropy
 from keras.models import Model
 from keras.regularizers import l1_l2
+from collections import defaultdict
 
 from eigen_nltk.core import Context, ModelEstimator
 from eigen_nltk.model_utils import get_seq_embedding_model, get_base_customer_objects
@@ -128,3 +129,12 @@ class ClassifyEstimator(ModelEstimator):
         if label:
             return pred_label
         return pred_idx
+
+
+# merge ner outputs to item level
+def merge_label_lists(label_lists, item_lists):
+    idx_label_dict = defaultdict(list)
+    for label_list, item in zip(label_lists, item_lists):
+        idx = item['idx']
+        idx_label_dict[idx].extend(label_list)
+    return [list(set(idx_label_dict[k])) for k in sorted(idx_label_dict.keys())]

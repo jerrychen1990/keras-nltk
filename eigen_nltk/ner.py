@@ -303,6 +303,8 @@ class NerDataParser(DataParser):
 
         entity_list = []
         for ner_type, (start, end) in ner_char_span_list:
+            if start < 0 or end < 0:
+                continue
             while text[start] == " " and start < len(text):
                 start += 1
             while text[end - 1] == " " and end > 0:

@@ -91,7 +91,7 @@ class ModelEstimator(BaseEstimator):
         all_args = dict(**model_args, **(self.context.get_model_args()))
         self.model_args = all_args
         self.model = self._build_model(**self.model_args)
-        self.model.summary()
+        self.model.summary(print_fn=self.logger.info)
         return self.model
 
     @ensure_file_path
@@ -108,7 +108,7 @@ class ModelEstimator(BaseEstimator):
     def load_model(self, path):
         self.logger.info("loading model from path:{}".format(path))
         self.model = load_keras_model(path, custom_objects=self.customer_objects)
-        self.model.summary()
+        self.model.summary(print_fn=self.logger.info)
 
     @classmethod
     def load_estimator(cls, path):
@@ -172,48 +172,24 @@ class ModelEstimator(BaseEstimator):
                 for batch in gen:
                     yield batch
 
-    def train_model_generator(self, train_data, dev_data, train_args, compile_args):
+    def train_model_generator(self, train_data, dev_data, train_args, compile_args, is_raw=True):
         self.logger.info("training model with generator")
         self._pre_train(train_args, compile_args)
         batch_size = train_args['batch_size']
-        self.logger.info("enhancing train data")
-        enhanced_train_data = self._get_enhanced_data(train_data)
+        if is_raw:
+            self.logger.info("enhancing train data")
+            train_data = self._get_enhanced_data(train_data)
 
-        self.logger.info("enhancing dev data")
-        enhanced_dev_data = self._get_enhanced_data(dev_data)
-
+            self.logger.info("enhancing dev data")
+            dev_data = self._get_enhanced_data(dev_data)
         kwargs = dict((k, v) for k, v in train_args.items() if k in VALID_FIT_GENERATOR_KWARGS)
-        validation_steps = int(math.ceil(len(enhanced_dev_data) / batch_size))
+        validation_steps = int(math.ceil(len(dev_data) / batch_size))
 
         self.training_model.fit_generator(
-            generator=self._get_generator(train_data=enhanced_train_data, batch_size=batch_size),
-            validation_data=self._get_generator(train_data=enhanced_dev_data, batch_size=batch_size),
+            generator=self._get_generator(train_data=train_data, batch_size=batch_size),
+            validation_data=self._get_generator(train_data=dev_data, batch_size=batch_size),
             validation_steps=validation_steps,
             **kwargs)
-
-    #
-    # def _get_stream_generator(self, data_path_list, batch_size, **kwargs):
-    #     while True:
-    #         generator =
-    #
-    #
-    #         for data_path in data_path_list:
-    #             data = jload(data_path)
-    #             enhanced_data = self._get_enhanced_data(data)
-    #             gen = self._generate_train_input(enhanced_data, batch_size, **kwargs)
-    #             for batch in gen:
-    #                 yield batch
-    #
-    # def train_model_stream_generator(self, train_path, dev_path, train_args, compile_args):
-    #     self.logger.info("training model with stream generator")
-    #     self._pre_train(train_args, compile_args)
-    #     batch_size = train_args['batch_size']
-    #     kwargs = dict((k, v) for k, v in train_args.items() if k in VALID_FIT_GENERATOR_KWARGS)
-    #     self.training_model.fit_generator(
-    #         generator=self._get_stream_generator(data_path=train_path, batch_size=batch_size),
-    #         validation_data=self._get_generator(train_data=enhanced_dev_data, batch_size=batch_size),
-    #         validation_steps=validation_steps,
-    #         **kwargs)
 
     def _get_raw_predict(self, data, batch_size=64, verbose=1):
         enhanced_data = self._get_enhanced_data(data)
@@ -228,11 +204,12 @@ class ModelEstimator(BaseEstimator):
         if enhanced_data:
             x = self._get_model_test_input(enhanced_data)
             pred_data = self.model.predict(x, batch_size=batch_size, verbose=verbose)
-            rs_data = self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail)
+            rs_data = self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail,
+                                                               **kwargs)
         return rs_data
 
     @abstractmethod
-    def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False):
+    def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False, **kwargs):
         raise NotImplementedError
 
     @abstractmethod

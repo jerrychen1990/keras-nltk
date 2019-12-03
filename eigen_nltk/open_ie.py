@@ -11,8 +11,10 @@
 -------------------------------------------------
 """
 from eigen_nltk.core import PipelineEstimator
+from eigen_nltk.constants import TAB
 from eigen_nltk.ner import NerExtractor
 from eigen_nltk.nre import NreExtractor
+from eigen_nltk.ner_classify import NerClassifyExtractor
 from eigen_nltk.utils import jdumps, flat
 from collections import defaultdict
 import copy
@@ -109,4 +111,80 @@ class SchemaFreeSPOExtractor(PipelineEstimator):
         total_entity_num = sum(len(e) for e in entity_list)
 
         self.logger.info("get {0} entity pairs from {1} entity".format(total_rel_num, total_entity_num))
+        return rs_list
+
+
+class SchemaFreeSPOExtractorPSO(PipelineEstimator):
+    def __init__(self, name, predicate_extractor, subject_extractor, object_extractor, logger_level="INFO"):
+        super().__init__(name, logger_level)
+        assert isinstance(predicate_extractor, NerClassifyExtractor)
+        assert isinstance(subject_extractor, NerExtractor)
+        assert isinstance(object_extractor, NerExtractor)
+        self.predicate_extractor = predicate_extractor
+        self.subject_extractor = subject_extractor
+        self.object_extractor = object_extractor
+
+    def predict_batch(self, batch, batch_size=64, verbose=1, predicate_show_detail=False, subject_show_detail=False,
+                      object_show_detail=False, predicate_threshold=0.5, **kwargs):
+        self.logger.info("extracting predicate...")
+        predicate_raw_list = self.predicate_extractor.predict_batch(batch, batch_size=batch_size, verbose=verbose,
+                                                                    show_detail=predicate_show_detail,
+                                                                    threhold=predicate_threshold, **kwargs)
+        self.logger.info("predicate list:{}".format(predicate_raw_list))
+
+        self.logger.info("extracting subject...")
+        batch_with_p = self._get_batch_with_p(batch, predicate_raw_list)
+        # self.logger.info("batch_with_p: {}".format(batch_with_p))
+        subject_raw_list = self.subject_extractor.predict_batch(batch_with_p,
+                                                                batch_size=batch_size,
+                                                                verbose=batch_with_p,
+                                                                show_detail=subject_show_detail)
+        self.logger.info("subject list:{}".format(subject_raw_list))
+
+        self.logger.info("extracting object...")
+        batch_with_sp = self._get_batch_with_sp(batch_with_p, subject_raw_list)
+        # self.logger.info("batch_with_sp:{}".format(batch_with_sp))
+        object_raw_list = self.object_extractor.predict_batch(batch_with_sp,
+                                                              batch_size=batch_size,
+                                                              verbose=batch_with_p,
+                                                              show_detail=object_show_detail)
+        self.logger.info("object list:{}".format(object_raw_list))
+        final_result = self._get_final_result(batch, object_raw_list, batch_with_sp)
+
+        return final_result
+
+    @classmethod
+    def _get_final_result(cls, batch, object_pred, batch_with_sp, sep=TAB):
+        rs_dict = defaultdict(list)
+        assert len(object_pred) == len(batch_with_sp)
+        for item, pred in zip(batch_with_sp, object_pred):
+            idx = item['id']
+            s, p = item['prefix'].split(sep)
+            for object in pred:
+                spo = (s, p, object[0])
+                rs_dict[idx].append(spo)
+        rs_list = [rs_dict[item['id']] for item in batch]
+        return rs_list
+
+    @classmethod
+    def _get_batch_with_p(cls, batch, predicate_batch):
+        rs_list = []
+        assert len(predicate_batch) == len(batch)
+        for item, predicate_pred in zip(batch, predicate_batch):
+            tmp_item = dict(id=item['id'], content=item['content'])
+            for label in predicate_pred['label_list']:
+                rs_list.append(dict(**tmp_item, prefix=label))
+            for predicate_entity in predicate_pred['entity_list']:
+                rs_list.append(dict(**tmp_item, prefix=predicate_entity[0]))
+        return rs_list
+
+    @classmethod
+    def _get_batch_with_sp(cls, batch_with_p, predicate_batch, sep=TAB):
+        rs_list = []
+        assert len(predicate_batch) == len(batch_with_p)
+        for item, subject_pred in zip(batch_with_p, predicate_batch):
+            tmp_item = dict(id=item['id'], content=item['content'])
+            for pred in subject_pred:
+                prefix = pred[0] + sep + item['prefix']
+                rs_list.append(dict(**tmp_item, prefix=prefix))
         return rs_list

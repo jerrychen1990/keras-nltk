@@ -251,13 +251,22 @@ def get_path_list(path_pattern):
     return path_list
 
 
-# print info with stars surround
-def print_info(info, fix_length=128):
+# surround info with stars
+def star_surround_info(info, fix_length=128):
     star_num = max(fix_length - len(info), 2)
     left_star_num = star_num // 2
     right_star_num = star_num - left_star_num
+    rs = "*" * left_star_num + info + "*" * right_star_num
+    return rs
 
-    print("*" * left_star_num + info + "*" * right_star_num)
+
+# print info with stars surround
+def print_info(info, logger=None, fix_length=128):
+    star_info = star_surround_info(info, fix_length)
+    if logger:
+        logger.info(star_info)
+    else:
+        print(star_info)
 
 
 def read_json_data(data_path):
@@ -410,3 +419,10 @@ def split_text_by_sep(text, sep_list):
         beg = e
     rs_list.append(text[beg:])
     return rs_list
+
+
+def array2zero_one_with_threshold(arr, threshold=0.5):
+    rs_arr = np.zeros_like(arr)
+    rs_arr[arr >= threshold] = 1
+    rs_arr = rs_arr.astype(np.int32)
+    return rs_arr

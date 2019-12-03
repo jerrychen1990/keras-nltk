@@ -15,29 +15,68 @@ from abc import abstractmethod
 from eigen_nltk.callback import ModelSaver
 from eigen_nltk.core import Context
 from eigen_nltk.utils import print_info, jdumps, read_json_data, get_now_str, jdump, create_dir, get_path_list, \
-    jdump_lines, sample_data_by_num
+    jdump_lines, sample_data_by_num, get_logger, star_surround_info
 from eigen_nltk.entity_cliassify import EntityClsEstimator, EntityClsContext
 from eigen_nltk.language_model import LMContext, TransformerLM
 from eigen_nltk.ner import NerExtractor, NerContext
 from eigen_nltk.nre import NreExtractor, NreContext
+from eigen_nltk.ner_classify import NerClassifyContext, NerClassifyExtractor
 from eigen_nltk.classify import ClassifyEstimator, ClassifyContext
 from eigen_nltk.pretrain import BertPreTrainer
 from eigen_nltk.eval import eval_ner, add_ner_pred, eval_classify, eval_entity_classify, add_classify_pred, eval_nre, \
-    add_nre_pred, add_entity_classify_pred, eval_language_model, add_language_model_pred
+    add_nre_pred, add_entity_classify_pred, eval_language_model, add_language_model_pred, eval_ner_classify, \
+    add_ner_classify_pred
+
+logger = get_logger(__name__)
+
+
+def star_print(info):
+    return print_info(info, logger=logger)
+
+
+class DataManager:
+    def __init__(self, train_path_list, dev_path_list, test_path_list, enhance_func):
+        self.train_path_list = train_path_list
+        self.dev_path_list = dev_path_list
+        self.test_path_list = test_path_list
+        self.enhance_func = enhance_func
+        self.data_path_dict = dict(train=self.train_path_list, dev=self.dev_path_list,
+                                   test=self.test_path_list)
+        self.data_cache = dict()
+
+    @classmethod
+    def _read_data(cls, data_path_list):
+        logger.info("reading data from :{}".format(data_path_list))
+        data = read_json_data(data_path_list)
+        logger.info("get {} items".format(len(data)))
+        return data
+
+    def get_data(self, data_tag, is_enhance):
+        key = (data_tag, is_enhance)
+        if key in self.data_cache.keys():
+            return self.data_cache[key]
+        if is_enhance:
+            raw_data = self.get_data(data_tag, False)
+            rs_data = self.enhance_func(raw_data)
+        else:
+            data_path_list = self.data_path_dict[data_tag]
+            rs_data = self._read_data(data_path_list)
+        self.data_cache[key] = rs_data
+        return rs_data
 
 
 class BaseExperiment:
-    def __init__(self, params, fit_generator=True):
-        print_info("job param:")
-        print(jdumps(params))
+    def __init__(self, params):
+        star_print("job param:")
+        logger.info(jdumps(params))
 
         self.dev_data_path_list = params['data']['dev_data_path'].split(",")
         self.test_data_path_list = params['data']['test_data_path'].split(",")
+        self.train_data_path_list = params['data']['test_data_path'].split(",")
+
         self.submit_data_path_list = params['data'].get('submit_data_path', "")
-        self.train_path_pattern = params['data']['train_path_pattern']
 
         self.vocab_path = params['schema']['vocab_path']
-
         self.model_args = params['model_args']
         self.train_args = params['train_args']
         self.compile_args = params['compile_args']
@@ -45,26 +84,21 @@ class BaseExperiment:
 
         self.ckp_path = params['model']['ckp_path']
         self.model_name = params['model']['model_name']
+        self.max_len = params['model'].get("max_len", None)
 
         self.log_level = params['common'].get("log_level", "INFO")
         self.is_train = params['common'].get("is_train", True)
-        self.is_eval = params['common'].get("is_eval", True)
-        self.is_output = params['common'].get("is_output", True)
+        self.eval_phase_list = params['common']['eval_phase_list'].split(",")
+        self.is_eval = len(self.eval_phase_list) > 0
+        self.output_phase_list = params['common']['output_phase_list'].split(",")
+        self.is_output = len(self.output_phase_list) > 0
         self.is_saving = params['common'].get("is_saving", True)
 
         self.model_path = "model/{}".format(self.model_name)
 
         self.estimator = None
-        self.pred_train = None
-        self.pred_dev = None
-        self.pred_test = None
-        self.true_train = None
-        self.true_dev = None
-        self.true_test = None
-
-        self.fit_generator = fit_generator
-
-        self.max_len = params['model'].get("max_len", None)
+        self.pred_data_dict = dict()
+        self.data_manager = None
 
     @abstractmethod
     def _eval_func(self, data, pred, **kwargs):
@@ -83,47 +117,21 @@ class BaseExperiment:
         pass
 
     def initialize_estimator(self):
-        print_info("estimator initialize phrase start")
+        star_print("estimator initialize phrase start")
         if self.ckp_path:
-            print_info("initialize estimator from checkpoint")
+            star_print("initialize estimator from checkpoint")
             self.estimator = self._load_estimator_func()
         else:
-            print_info("initialize estimator from model args")
+            star_print("initialize estimator from model args")
             self.estimator = self._create_estimator_func()
-        print_info("estimator initialize phrase end")
-
-    def _read_data(self):
-        print_info("reading data phrase start")
-        self.train_data_path_list = get_path_list(self.train_path_pattern)
-        print_info("reading train data from :{}".format(self.train_data_path_list))
-        self.train_data = read_json_data(self.train_data_path_list)
-        print_info("got {} train data".format(len(self.train_data)))
-
-        print_info("reading dev data from :{}".format(self.dev_data_path_list))
-        self.dev_data = read_json_data(self.dev_data_path_list)
-        print_info("got {} dev data".format(len(self.dev_data)))
-
-        print_info("reading test data from :{}".format(self.test_data_path_list))
-        self.test_data = read_json_data(self.test_data_path_list)
-        print_info("got {} test data".format(len(self.test_data)))
-        print_info("reading data phrase end")
-
-    def preprocess_data(self):
-        print_info("preprocess train data")
-        enhanced_train_data = self.estimator._get_enhanced_data(self.train_data)
-        cache_train_data = self.estimator._get_cache_data(enhanced_train_data)
-        print_info("got {} cache train data".format(len(cache_train_data)))
-        jdump_lines(cache_train_data, "cache/{0}-train.txt".format(self.model_name))
-        print_info("preprocess dev data")
-        enhanced_dev_data = self.estimator._get_enhanced_data(self.dev_data)
-        cache_dev_data = self.estimator._get_cache_data(enhanced_dev_data)
-        print_info("got {} cache dev data".format(len(cache_dev_data)))
-        jdump_lines(cache_train_data, "cache/{0}-dev.txt".format(self.model_name))
+        self.data_manager = DataManager(self.train_data_path_list, self.dev_data_path_list, self.test_data_path_list,
+                                        self.estimator._get_enhanced_data)
+        star_print("estimator initialize phrase end")
 
     def train_model(self):
-        print_info("training phrase start")
+        star_print("training phrase start")
         if not self.estimator:
-            print("please crete estimator before training!")
+            logger.error("please crete estimator before training!")
             return
         create_dir("./tensorboard/")
         tensorboard_callback = TensorBoard(log_dir='./tensorboard/{0}-{1}'.format(self.model_name, get_now_str()))
@@ -137,91 +145,59 @@ class BaseExperiment:
             callbacks.append(model_saver)
 
         self.train_args.update(callbacks=callbacks)
-        if self.fit_generator:
-            self.estimator.train_model_generator(self.train_data, self.dev_data, self.train_args,
-                                                 self.compile_args)
-        else:
-            self.estimator.train_model(self.train_data, self.dev_data, self.train_args, self.compile_args)
-        print_info("training phrase finish")
+        train_data = self.data_manager.get_data("train", True)
+        dev_data = self.data_manager.get_data("dev", True)
 
-    def do_predict(self, show_detail=False, verbose=1, max_predict_num=10000):
-        print_info("predicting phrase start")
-        print_info("predict result on train set:")
-        self.true_train = sample_data_by_num(self.train_data, max_predict_num)
-        self.pred_train = self.estimator.predict_batch(self.true_train, show_detail=show_detail, verbose=verbose)
-        print_info("predict result on dev set:")
-        self.true_dev = sample_data_by_num(self.dev_data, max_predict_num)
-        self.pred_dev = self.estimator.predict_batch(self.true_dev, show_detail=show_detail, verbose=verbose)
-        print_info("predict result on test set:")
-        self.true_test = sample_data_by_num(self.test_data, max_predict_num)
-        self.pred_test = self.estimator.predict_batch(self.true_test, show_detail=show_detail, verbose=verbose)
-        print_info("predicting phrase end")
+        self.estimator.train_model_generator(train_data, dev_data, self.train_args,
+                                             self.compile_args, is_raw=False)
 
-    def do_eval(self):
-        print_info("eval phrase start")
+    def test_model(self, show_detail=False, verbose=1, max_predict_num=10000):
+        star_print("testing phrase start")
         create_dir("eval/")
-
-        print_info("eval result on train set:")
-        eval_rs = self._eval_func(self.true_train, self.pred_train)
-        print(jdumps(eval_rs))
-        jdump(eval_rs, "eval/{}_train.json".format(self.model_name))
-
-        print_info("eval result on dev set:")
-        eval_rs = self._eval_func(self.true_dev, self.pred_dev)
-        print(jdumps(eval_rs))
-        jdump(eval_rs, "eval/{}_dev.json".format(self.model_name))
-
-        print_info("eval result on test set:")
-        eval_rs = self._eval_func(self.true_test, self.pred_test)
-        print(jdumps(eval_rs))
-        jdump(eval_rs, "eval/{}_test.json".format(self.model_name))
-        print_info("eval phrase end")
-
-    def do_output(self):
-        print_info("output phrase start")
         create_dir("output/")
 
-        print_info("output result on train set:")
-        output_data = self._output_func(self.true_train, self.pred_train)
-        jdump(output_data, 'output/{}_train.json'.format(self.model_name))
+        for tag in ['train', 'dev', 'test']:
+            if tag not in self.eval_phase_list and tag not in self.output_phase_list:
+                continue
+            logger.info("predict result on {} set:".format(tag))
+            raw_data = self.data_manager.get_data(tag, False)
+            raw_data = sample_data_by_num(raw_data, max_predict_num)
+            pred_data = self.estimator.predict_batch(raw_data, show_detail=show_detail, verbose=verbose)
+            if tag in self.eval_phase_list:
+                logger.info("evaluating {} set".format(tag))
+                eval_rs = self._eval_func(raw_data, pred_data)
+                logger.info(jdumps(eval_rs))
+                path = "eval/{0}_{1}.json".format(self.model_name, tag)
+                logger.info("writing eval result to :{}".format(path))
+                jdump(eval_rs, path)
+            if tag in self.output_phase_list:
+                logger.info("output detail of {} set:".format(tag))
+                output_data = self._output_func(raw_data, pred_data)
+                path = 'output/{0}_{1}.json'.format(self.model_name, tag)
+                logger.info("writing output result to :{}".format(path))
+                jdump(output_data, path)
 
-        print_info("output result on dev set:")
-        output_data = self._output_func(self.true_dev, self.pred_dev)
-        jdump(output_data, 'output/{}_dev.json'.format(self.model_name))
-
-        print_info("output result on test set:")
-        output_data = self._output_func(self.true_test, self.pred_test)
-        jdump(output_data, 'output/{}_test.json'.format(self.model_name))
-
-        print_info("output phrase start")
+        star_print("testing phrase end")
 
     def do_submit(self):
-        print_info("submit phrase start")
+        star_print("submit phrase start")
         submit_data = read_json_data(self.submit_data_path_list)
         submit_pred = self.estimator.predict_batch(submit_data, show_detail=False, verbose=1)
         submit_output = self._output_func(submit_data, submit_pred)
         jdump(submit_output, "output/{}_submit.json".format(self.model_name))
-        print_info("submit phrase end")
+        star_print("submit phrase end")
 
     def do_experiment(self):
-        print_info("job start")
-
+        star_print("job start")
         self.initialize_estimator()
-        self._read_data()
-        # self.preprocess_data()
         if self.is_train:
             self.train_model()
-        if self.is_saving:
-            self.estimator.save_estimator(self.model_path)
-        if self.is_eval or self.is_output:
-            self.do_predict()
-            if self.is_eval:
-                self.do_eval()
-            if self.is_output:
-                self.do_output()
+            if self.is_saving:
+                self.estimator.save_estimator(self.model_path)
+        self.test_model()
         if self.submit_data_path_list:
             self.do_submit()
-        print_info("job finish")
+        star_print("job finish")
 
 
 class NerExperiment(BaseExperiment):
@@ -353,3 +329,28 @@ class LanguageModelExperiment(BaseExperiment):
 
     def _output_func(self, data, pred, **kwargs):
         return add_language_model_pred(data, pred)
+
+
+class NerClassifyExperiment(BaseExperiment):
+
+    def __init__(self, params):
+        super().__init__(params)
+        self.ner_dict_path = params['schema']['ner_dict_path']
+        self.annotation_type = params['schema']['annotation_type']
+        self.label_dict_path = params['schema']['label_dict_path']
+
+    def _load_estimator_func(self):
+        return NerClassifyExtractor.load_estimator(self.ckp_path)
+
+    def _create_estimator_func(self):
+        context = NerClassifyContext(self.vocab_path, self.ner_dict_path, self.annotation_type,
+                                     self.label_dict_path)
+        extractor = NerClassifyExtractor(self.model_name, context, self.max_len, logger_level=self.log_level)
+        extractor.create_model(self.model_args)
+        return extractor
+
+    def _eval_func(self, data, pred, **kwargs):
+        return eval_ner_classify(data, pred)
+
+    def _output_func(self, data, pred, **kwargs):
+        return add_ner_classify_pred(data, pred)

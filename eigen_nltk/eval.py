@@ -10,6 +10,7 @@
                    2019-09-19:
 -------------------------------------------------
 """
+import copy
 from collections import defaultdict
 from sklearn.metrics import accuracy_score
 from eigen_nltk.utils import flat
@@ -102,6 +103,16 @@ def add_ner_pred(data, pred, contain_span=True):
     return rs_list
 
 
+# add ner classify pred field to data
+def add_ner_classify_pred(data, pred, contain_span=True):
+    rs_list = []
+    for p, e in zip(pred, data):
+        rs = dict(id=e['id'], content=e['content'], entity_list=e['entity_list'], entity_pred=p['entity_list'],
+                  label_list=e['label_list'], label_pred=p['label_list'])
+        rs_list.append(rs)
+    return rs_list
+
+
 # add ner pred field to data
 def add_nre_pred(data, pred, contain_span=True):
     rs_list = []
@@ -188,6 +199,27 @@ def eval_classify(test_data, label_pred):
     spo_eval = eval_spo_list(spo_true, spo_pred)
     spo_eval.update(accuracy=accuracy)
     return spo_eval
+
+
+def eval_ner_classify(test_data, pred):
+    def convert_item(item):
+        e_list = copy.copy(item['entity_list'])
+        for t in item['label_list']:
+            e_list.append((t, 'LABEL_ENTITY', None))
+        rs_item = dict(**item)
+        rs_item['entity_list'] = e_list
+        return rs_item
+
+    test_data = [convert_item(item) for item in test_data]
+
+    def convert_pred(pred):
+        rs_list = copy.copy(pred['entity_list'])
+        for t in pred['label_list']:
+            rs_list.append((t, 'LABEL_ENTITY', None))
+        return rs_list
+
+    pred_data = [convert_pred(p) for p in pred]
+    return eval_ner(test_data, pred_data, False)
 
 
 def eval_language_model(test_data, lm_pred):
