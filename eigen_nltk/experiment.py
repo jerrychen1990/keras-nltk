@@ -202,8 +202,8 @@ class BaseExperiment:
 
 class NerExperiment(BaseExperiment):
 
-    def __init__(self, params, fit_generator=True):
-        super().__init__(params, fit_generator)
+    def __init__(self, params):
+        super().__init__(params)
         self.ner_dict_path = params['schema']['ner_dict_path']
         self.annotation_type = params['schema']['annotation_type']
 
