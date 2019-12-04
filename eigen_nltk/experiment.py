@@ -72,7 +72,7 @@ class BaseExperiment:
 
         self.dev_data_path_list = params['data']['dev_data_path'].split(",")
         self.test_data_path_list = params['data']['test_data_path'].split(",")
-        self.train_data_path_list = params['data']['test_data_path'].split(",")
+        self.train_data_path_list = params['data']['train_data_path'].split(",")
 
         self.submit_data_path_list = params['data'].get('submit_data_path', "")
 

@@ -5,3 +5,4 @@ keras-contrib
 frozendict
 tqdm
 keras_radam
+eigen_nltk==0.0.1
