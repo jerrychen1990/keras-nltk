@@ -119,7 +119,7 @@ class DataParser(object):
 
     def get_short_data(self, data, max_len):
         rs_list = []
-        for idx, item in tqdm(enumerate(data)):
+        for idx, item in tqdm(iterable=enumerate(data), mininterval=5):
             tmp_list = self.item2short_item(idx, item, max_len)
             rs_list.extend(tmp_list)
         return rs_list

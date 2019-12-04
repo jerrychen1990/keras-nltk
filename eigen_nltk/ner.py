@@ -127,7 +127,7 @@ class NerExtractor(ModelEstimator):
         self.logger.info("get {0} short data from {1} origin data".format(len(short_data), len(data)))
         enhance_data = []
 
-        for idx, item in tqdm(enumerate(short_data)):
+        for idx, item in tqdm(iterable=enumerate(short_data), mininterval=5):
             tmp_item = copy.copy(item)
             content = item['content']
             offset = item['offset']
