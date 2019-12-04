@@ -4,5 +4,4 @@ keras==2.2.4
 keras-contrib
 frozendict
 tqdm
-keras_radam
 pony-plugin-sdk

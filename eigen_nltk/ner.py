@@ -305,9 +305,9 @@ class NerDataParser(DataParser):
         for ner_type, (start, end) in ner_char_span_list:
             if start < 0 or end < 0:
                 continue
-            while text[start] == " " and start < len(text):
+            while start < len(text) and text[start] == " ":
                 start += 1
-            while text[end - 1] == " " and end > 0:
+            while end > 0 and text[end - 1] == " ":
                 end -= 1
             entity_list.append((text[start:end], ner_type, (start, end)))
         return entity_list
