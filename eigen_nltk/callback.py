@@ -55,18 +55,19 @@ class MetricEvaluator(Callback):
 
 
 class ModelSaver(Callback):
-    def __init__(self, extractor, save_epoch_interval=1, overwrite=True):
+    def __init__(self, extractor, model_dir, save_epoch_interval=1, overwrite=True):
         self.overwrite = overwrite
         self.extractor = extractor
         self.save_epoch_interval = save_epoch_interval
         self.model_name = self.extractor.model_name
+        self.model_dir = model_dir
         self.logger = get_logger(self.model_name)
 
     def on_epoch_end(self, epoch, show=True, logs=None):
         epoch += 1
         if epoch % self.save_epoch_interval == 0:
             self.logger.info("current epoch:{}".format(epoch))
-            model_path = "{0}/{1}".format("model/ckpt", self.model_name)
+            model_path = "{0}/ckpt/{1}".format(self.model_dir, self.model_name)
             if not self.overwrite:
                 model_path = model_path + "-{}".format(epoch)
             self.extractor.save_estimator(model_path)

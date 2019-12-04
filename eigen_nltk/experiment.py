@@ -10,22 +10,24 @@
                    2019-10-12:
 -------------------------------------------------
 """
-from keras.callbacks import TensorBoard, EarlyStopping
 from abc import abstractmethod
+
+from keras.callbacks import TensorBoard, EarlyStopping
+
 from eigen_nltk.callback import ModelSaver
-from eigen_nltk.core import Context
-from eigen_nltk.utils import print_info, jdumps, read_json_data, get_now_str, jdump, create_dir, get_path_list, \
-    jdump_lines, sample_data_by_num, get_logger, star_surround_info
-from eigen_nltk.entity_cliassify import EntityClsEstimator, EntityClsContext
-from eigen_nltk.language_model import LMContext, TransformerLM
-from eigen_nltk.ner import NerExtractor, NerContext
-from eigen_nltk.nre import NreExtractor, NreContext
-from eigen_nltk.ner_classify import NerClassifyContext, NerClassifyExtractor
 from eigen_nltk.classify import ClassifyEstimator, ClassifyContext
-from eigen_nltk.pretrain import BertPreTrainer
+from eigen_nltk.core import Context
+from eigen_nltk.entity_cliassify import EntityClsEstimator, EntityClsContext
 from eigen_nltk.eval import eval_ner, add_ner_pred, eval_classify, eval_entity_classify, add_classify_pred, eval_nre, \
     add_nre_pred, add_entity_classify_pred, eval_language_model, add_language_model_pred, eval_ner_classify, \
     add_ner_classify_pred
+from eigen_nltk.language_model import LMContext, TransformerLM
+from eigen_nltk.ner import NerExtractor, NerContext
+from eigen_nltk.ner_classify import NerClassifyContext, NerClassifyExtractor
+from eigen_nltk.nre import NreExtractor, NreContext
+from eigen_nltk.pretrain import BertPreTrainer
+from eigen_nltk.utils import print_info, jdumps, read_json_data, get_now_str, jdump, create_dir, sample_data_by_num, \
+    get_logger
 
 logger = get_logger(__name__)
 
@@ -93,8 +95,10 @@ class BaseExperiment:
         self.output_phase_list = params['common']['output_phase_list'].split(",")
         self.is_output = len(self.output_phase_list) > 0
         self.is_saving = params['common'].get("is_saving", True)
+        self.base_dir = params['common'].get("base_dir", ".")
+        self.model_dir = "{0}/model".format(self.base_dir)
 
-        self.model_path = "model/{}".format(self.model_name)
+        self.model_path = "{0}/model/{1}".format(self.base_dir, self.model_name)
 
         self.estimator = None
         self.pred_data_dict = dict()
@@ -133,15 +137,18 @@ class BaseExperiment:
         if not self.estimator:
             logger.error("please crete estimator before training!")
             return
-        create_dir("./tensorboard/")
-        tensorboard_callback = TensorBoard(log_dir='./tensorboard/{0}-{1}'.format(self.model_name, get_now_str()))
+        tensorboard_dir = "{}/tensorboard".format(self.base_dir)
+        create_dir(tensorboard_dir)
+        tensorboard_callback = TensorBoard(
+            log_dir='{0}/{1}-{2}'.format(tensorboard_dir, self.model_name, get_now_str()))
         early_stop = EarlyStopping(**self.callback_args, restore_best_weights=True)
         callbacks = [tensorboard_callback, early_stop]
 
         save_epoch_interval = self.train_args.get("save_epoch_ckpt", -1)
 
         if save_epoch_interval > 0:
-            model_saver = ModelSaver(self.estimator, save_epoch_interval=save_epoch_interval, overwrite=False)
+            model_saver = ModelSaver(self.estimator, self.model_dir, save_epoch_interval=save_epoch_interval,
+                                     overwrite=False)
             callbacks.append(model_saver)
 
         self.train_args.update(callbacks=callbacks)
@@ -153,8 +160,11 @@ class BaseExperiment:
 
     def test_model(self, show_detail=False, verbose=1, max_predict_num=10000):
         star_print("testing phrase start")
-        create_dir("eval/")
-        create_dir("output/")
+        eval_path = self.base_dir + "/eval"
+        output_path = self.base_dir + "/output"
+        create_dir(eval_path)
+        create_dir(output_path)
+
 
         for tag in ['train', 'dev', 'test']:
             if tag not in self.eval_phase_list and tag not in self.output_phase_list:
@@ -167,13 +177,13 @@ class BaseExperiment:
                 logger.info("evaluating {} set".format(tag))
                 eval_rs = self._eval_func(raw_data, pred_data)
                 logger.info(jdumps(eval_rs))
-                path = "eval/{0}_{1}.json".format(self.model_name, tag)
+                path = "{0}/{1}_{2}.json".format(eval_path, self.model_name, tag)
                 logger.info("writing eval result to :{}".format(path))
                 jdump(eval_rs, path)
             if tag in self.output_phase_list:
                 logger.info("output detail of {} set:".format(tag))
                 output_data = self._output_func(raw_data, pred_data)
-                path = 'output/{0}_{1}.json'.format(self.model_name, tag)
+                path = '{0}/{1}_{2}.json'.format(output_path, self.model_name, tag)
                 logger.info("writing output result to :{}".format(path))
                 jdump(output_data, path)
 
