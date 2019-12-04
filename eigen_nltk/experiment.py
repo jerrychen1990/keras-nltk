@@ -152,7 +152,9 @@ class BaseExperiment:
             callbacks.append(model_saver)
 
         self.train_args.update(callbacks=callbacks)
+        logger.info("getting train data for training phrase")
         train_data = self.data_manager.get_data("train", True)
+        logger.info("getting dev data for training phrase")
         dev_data = self.data_manager.get_data("dev", True)
 
         self.estimator.train_model_generator(train_data, dev_data, self.train_args,
@@ -164,7 +166,6 @@ class BaseExperiment:
         output_path = self.base_dir + "/output"
         create_dir(eval_path)
         create_dir(output_path)
-
 
         for tag in ['train', 'dev', 'test']:
             if tag not in self.eval_phase_list and tag not in self.output_phase_list:

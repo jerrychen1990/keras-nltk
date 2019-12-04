@@ -1,6 +1,7 @@
 build/
 dist/
 eigen_nltk.egg-info/
+plugins/__pycache__
 cache/
 .idea/
 tmp.py
