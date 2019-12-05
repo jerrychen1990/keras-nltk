@@ -20,5 +20,9 @@ if __name__ == '__main__':
     job_configs = parser.parse()
     model_config_path = job_configs['args']['config_path']
     params = read_config(model_config_path)
+
+    gpu_num = job_configs['args'].get("executor_gpu_num", 1)
+    params = read_config(model_config_path)
+    params['compile_args']['gpu_num'] = gpu_num
     experiment = NerExperiment(params)
     experiment.do_experiment()
