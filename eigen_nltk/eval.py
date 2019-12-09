@@ -97,8 +97,8 @@ def add_ner_pred(data, pred, contain_span=True):
 
         rs = dict(id=e['id'], content=e['content'], statistic=statistic,
                   entity_list=e['entity_list'], ner_pred=p, ner_fp=fp, ner_fn=fn, ner_tp=tp)
-        if "given_entity_list" in e.keys():
-            rs.update(given_entity_list=e['given_entity_list'])
+        if "prefix" in e.keys():
+            rs.update(given_entity_list=e['prefix'])
         rs_list.append(rs)
     return rs_list
 

@@ -1,7 +1,7 @@
 keras-bert==0.78.0
-keras-rectified-adam
 keras==2.2.4
-keras-contrib
-frozendict
-tqdm
-pony-plugin-sdk
+keras-contrib==2.0.8
+frozendict==1.2
+tqdm==4.36.1
+pony-plugin-sdk==0.0.2
+keras-transformer==0.31.0
