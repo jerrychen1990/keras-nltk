@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
 """
 -------------------------------------------------
-   File Name：     ner_classify_task
+   File Name：     language_model_task
    Description :
    Author :       chenhao
-   date：          2019-12-04
+   date：          2019-12-10
 -------------------------------------------------
    Change Activity:
-                   2019-12-04:
+                   2019-12-10:
 -------------------------------------------------
 """
 from plugin_sdk import ConfigParser
 
-from eigen_nltk.experiment import NerClassifyExperiment
+from eigen_nltk.experiment import LanguageModelExperiment
 from eigen_nltk.utils import read_config
 
 if __name__ == '__main__':
@@ -23,5 +23,5 @@ if __name__ == '__main__':
 
     params = read_config(model_config_path)
     params['compile_args']['gpu_num'] = gpu_num
-    experiment = NerClassifyExperiment(params)
+    experiment = LanguageModelExperiment(params)
     experiment.do_experiment()
