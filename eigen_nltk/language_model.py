@@ -15,6 +15,7 @@ from eigen_nltk.trans import DataParser, remove_token_char
 from eigen_nltk.model_utils import get_lm_decoder_model
 from eigen_nltk.utils import padding_seq, list_find
 from eigen_nltk.optimizer import get_optimizer_cls
+from keras_transformer.gelu import gelu
 from keras.losses import sparse_categorical_crossentropy
 from keras.layers import *
 
@@ -36,7 +37,8 @@ class TransformerLM(ModelEstimator):
     def _build_model(self, embedding_dim, decoder_block_num, head_num, hidden_dim, embed_trainable=True, **kwargs):
         model = get_lm_decoder_model(vocab_size=self.vocab_size, embedding_dim=embedding_dim,
                                      decoder_num=decoder_block_num, head_num=head_num,
-                                     hidden_dim=hidden_dim, embed_trainable=embed_trainable)
+                                     hidden_dim=hidden_dim, embed_trainable=embed_trainable,
+                                     feed_forward_activation=gelu, adapter_activation=gelu)
 
         return model
 

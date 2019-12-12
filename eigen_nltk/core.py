@@ -35,7 +35,7 @@ class Context(object):
         with codecs.open(vocab_path, "r", "utf8") as f:
             for line in f:
                 line = line.strip()
-                if line:
+                if line and line not in self.token2id.keys():
                     self.token2id[line] = len(self.token2id)
                     self.vocab_list.append(line)
         self.id2token = {int(v): k for k, v in self.token2id.items()}

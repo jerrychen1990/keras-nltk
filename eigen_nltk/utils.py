@@ -34,12 +34,9 @@ def get_logger(logger_name, level="INFO"):
 
 
 # read id2enum and enum2id dict from json file
-def read_id_mapping(mapping_path, id_first=True):
-    id2name, name2id = json.load(codecs.open(mapping_path, 'r', 'utf8'))
-    if not id_first:
-        id2name, name2id = name2id, id2name
-
-    id2name = dict((int(k), v) for k, v in id2name.items())
+def read_id_mapping(mapping_path):
+    name2id = jload(mapping_path)
+    id2name = {int(v): k for k, v in name2id.items()}
     assert len(id2name) == len(name2id)
     return id2name, name2id
 
