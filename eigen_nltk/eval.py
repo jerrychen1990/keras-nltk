@@ -23,8 +23,8 @@ def ner2spo_detail(entity_list, id):
     return rs
 
 
-def ner2spo(entity_list, id):
-    return [(id, e[1], e[0]) for e in entity_list]
+def ner2spo(entity_list, idx):
+    return [(idx, e[1], e[0]) for e in entity_list]
 
 
 def nre2spo(rel_list, id):
@@ -86,16 +86,17 @@ def eval_spo_list(true_data, pred_data):
 # add ner pred field to data
 def add_ner_pred(data, pred, contain_span=True):
     rs_list = []
+    assert len(data) == len(pred)
     spo_func = ner2spo_detail if contain_span else ner2spo
-    for p, e in zip(pred, data):
-        p_set = set(spo_func(p, e['id']))
-        t_set = set(spo_func(e['entity_list'], e['id']))
+    for idx, (p, e) in enumerate(zip(pred, data)):
+        p_set = set(spo_func(p, idx))
+        t_set = set(spo_func(e['entity_list'], idx))
         fp = [list(x) for x in p_set - t_set]
         fn = [list(x) for x in t_set - p_set]
         tp = [list(x) for x in p_set & t_set]
         statistic = "tp_num:{0}, fp_num:{1}, fn_num:{2}".format(len(tp), len(fp), len(fn))
 
-        rs = dict(id=e['id'], content=e['content'], statistic=statistic,
+        rs = dict(content=e['content'], statistic=statistic,
                   entity_list=e['entity_list'], ner_pred=p, ner_fp=fp, ner_fn=fn, ner_tp=tp)
         if "prefix" in e.keys():
             rs.update(prefix=e['prefix'])
@@ -106,8 +107,9 @@ def add_ner_pred(data, pred, contain_span=True):
 # add ner classify pred field to data
 def add_ner_classify_pred(data, pred, contain_span=True):
     rs_list = []
+    assert len(data) == len(pred)
     for p, e in zip(pred, data):
-        rs = dict(id=e['id'], content=e['content'], entity_list=e['entity_list'], entity_pred=p['entity_list'],
+        rs = dict(content=e['content'], entity_list=e['entity_list'], entity_pred=p['entity_list'],
                   label_list=e['label_list'], label_pred=p['label_list'])
         rs_list.append(rs)
     return rs_list
@@ -166,9 +168,10 @@ def add_language_model_pred(data, pred):
 
 # eval ner_result with test_data
 def eval_ner(test_data, ner_pred_list, contain_span=True):
+    assert len(test_data) == len(ner_pred_list)
     spo_func = ner2spo_detail if contain_span else ner2spo
-    spo_detail_pred = [spo_func(e, item['id']) for e, item in zip(ner_pred_list, test_data)]
-    spo_detail_true = [spo_func(item['entity_list'], item['id']) for item in test_data]
+    spo_detail_pred = [spo_func(e, idx) for idx, e in enumerate(ner_pred_list)]
+    spo_detail_true = [spo_func(item['entity_list'], idx) for idx, item in enumerate(test_data)]
     return eval_spo_list(spo_detail_true, spo_detail_pred)
 
 
