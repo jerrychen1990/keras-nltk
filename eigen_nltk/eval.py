@@ -35,8 +35,8 @@ def entity_cls2spo(entity_list, id):
     return [(id, e[1], e[0]) for e in entity_list]
 
 
-def label2spo(label, id):
-    return [(id, label, id)]
+def label2spo(label_list, id):
+    return [(id, label, id) for label in label_list]
 
 
 # group spo tuple to dict with prediction as key
@@ -153,7 +153,7 @@ def add_entity_classify_pred(data, pred):
 def add_classify_pred(data, pred):
     rs_list = []
     for p, e in zip(pred, data):
-        rs = dict(idx=e['idx'], content=e['content'], label=e.get('label', None), label_pred=p)
+        rs = dict(content=e['content'], label=e.get('label', []), label_pred=p)
         rs_list.append(rs)
     return rs_list
 
@@ -192,15 +192,15 @@ def eval_entity_classify(test_data, nre_pred_list):
 
 
 def eval_classify(test_data, label_pred):
-    label_true = [str(e['label']) for e in test_data]
-    label_pred = [str(e) for e in label_pred]
+    label_true = [e['label'] for e in test_data]
     assert len(label_true) == len(label_pred)
-    assert len(label_true) > 0
-    accuracy = accuracy_score(label_true, label_pred)
-    spo_true = [label2spo(label, idx) for idx, label in enumerate(label_true)]
-    spo_pred = [label2spo(label, idx) for idx, label in enumerate(label_pred)]
+    # accuracy = accuracy_score(label_true, label_pred)
+    spo_true = [label2spo(label_list, idx) for idx, label_list in enumerate(label_true)]
+    # print(spo_true)
+    spo_pred = [label2spo(label_list, idx) for idx, label_list in enumerate(label_pred)]
+    # print(spo_pred)
     spo_eval = eval_spo_list(spo_true, spo_pred)
-    spo_eval.update(accuracy=accuracy)
+    # spo_eval.update(accuracy=accuracy)
     return spo_eval
 
 

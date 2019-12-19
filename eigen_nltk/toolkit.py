@@ -14,7 +14,7 @@ from eigen_nltk.utils import read_json_data, flat, jdumps, jdump
 from eigen_nltk.constants import BMESO, BIO
 
 
-def k(data_path, schema_path, ner_tag_type):
+def generate_ner_schema_file(data_path, schema_path, ner_tag_type):
     data = read_json_data(data_path)
     print("{} data read", len(data))
     entity_type_list = flat([[e[1] for e in item['entity_list']] for item in data])

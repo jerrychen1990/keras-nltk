@@ -27,7 +27,7 @@ from eigen_nltk.ner_classify import NerClassifyContext, NerClassifyExtractor
 from eigen_nltk.nre import NreExtractor, NreContext
 from eigen_nltk.pretrain import BertPreTrainer
 from eigen_nltk.utils import print_info, jdumps, read_json_data, get_now_str, jdump, create_dir, sample_data_by_num, \
-    get_logger
+    get_logger, upload_file2oss
 
 logger = get_logger(__name__)
 
@@ -94,7 +94,9 @@ class BaseExperiment:
         self.is_eval = len(self.eval_phase_list) > 0
         self.output_phase_list = params['common']['output_phase_list'].split(",")
         self.is_output = len(self.output_phase_list) > 0
-        self.is_saving = params['common'].get("is_saving", True)
+        self.is_save = params['common'].get("is_save", True)
+        self.is_save_tf = params['common'].get("is_save_tf", False)
+        self.oss_dir = params['common'].get("oss_dir", None)
         self.base_dir = params['common'].get("base_dir", ".")
         self.model_dir = "{0}/model".format(self.base_dir)
 
@@ -203,8 +205,13 @@ class BaseExperiment:
         self.initialize_estimator()
         if self.is_train:
             self.train_model()
-            if self.is_saving:
+            if self.is_save:
                 self.estimator.save_estimator(self.model_path)
+            if self.is_save_tf:
+                compress_path = self.estimator.save_tf_serving_model(path=self.model_path)
+                if self.oss_dir:
+                    upload_file2oss(compress_path, self.oss_dir)
+
         self.test_model()
         if self.submit_data_path_list:
             self.do_submit()
@@ -239,13 +246,15 @@ class ClassifyExperiment(BaseExperiment):
     def __init__(self, params):
         super().__init__(params)
         self.label_dict_path = params['schema']['label_dict_path']
+        self.multi_label = params['model']['multi_label']
 
     def _load_estimator_func(self):
         return ClassifyEstimator.load_estimator(self.ckp_path)
 
     def _create_estimator_func(self):
         classify_context = ClassifyContext(self.vocab_path, self.label_dict_path)
-        extractor = ClassifyEstimator(self.model_name, classify_context, self.max_len, logger_level=self.log_level)
+        extractor = ClassifyEstimator(self.model_name, classify_context, self.max_len, self.multi_label,
+                                      logger_level=self.log_level)
         extractor.create_model(self.model_args)
         return extractor
 

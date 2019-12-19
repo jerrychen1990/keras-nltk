@@ -15,14 +15,22 @@ from __future__ import absolute_import
 from __future__ import division
 
 import os
+import shutil
 
+import tensorflow as tf
 from keras.layers import *
-from keras.models import Model, load_model
+from keras.models import Model
+from keras.models import load_model
 from keras_bert import get_custom_objects, load_trained_model_from_checkpoint
 from keras_contrib.losses import crf_loss
+from keras_contrib.metrics import crf_accuracy
 from keras_contrib.metrics import crf_marginal_accuracy
 from keras_contrib.metrics import crf_viterbi_accuracy
 from keras_contrib.utils.test_utils import to_tuple
+from tensorflow.python.saved_model import builder as saved_model_builder
+from tensorflow.python.saved_model import tag_constants, signature_constants
+from keras_transformer.transformer import _wrap_layer, attention_builder, feed_forward_builder, EmbeddingRet, \
+    TrigPosEmbedding, EmbeddingSim
 
 from eigen_nltk.optimizer import BertAdamWarmup, BertAdam
 
@@ -38,6 +46,31 @@ def freeze_bert(bert_model, freeze_layer_num):
             if layer_num <= freeze_layer_num:
                 layer.trainable = False
     return bert_model
+
+
+def export_keras_as_tf_file(model, input_keys, output_keys, export_path):
+    if os.path.exists(export_path):
+        shutil.rmtree(export_path)
+    sess = K.get_session()
+    K._LEARNING_PHASE = tf.constant(0)
+    K.set_learning_phase(0)
+    assert len(input_keys) == len(model.inputs)
+    assert len(output_keys) == len(model.outputs)
+
+    model_input = dict(zip(input_keys, model.inputs))
+    model_output = dict(zip(output_keys, model.outputs))
+    print(model_input)
+    print(model_output)
+    prediction_signature = tf.saved_model.signature_def_utils.predict_signature_def(model_input, model_output)
+    builder = saved_model_builder.SavedModelBuilder(export_path)
+    builder.add_meta_graph_and_variables(
+        sess, [tag_constants.SERVING],
+        signature_def_map={
+            signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
+                prediction_signature,
+        }
+    )
+    builder.save()
 
 
 class CRF(Layer):
@@ -645,6 +678,13 @@ def get_base_customer_objects():
     return customer_objects
 
 
+def get_full_customer_objects():
+    customer_objects = get_custom_objects()
+    customer_objects.update(CRF=CRF,
+                            crf_loss=crf_loss, crf_accuracy=crf_accuracy, crf_viterbi_accuracy=crf_viterbi_accuracy)
+    return customer_objects
+
+
 def load_keras_bert_model(bert_keras_path, feature_only=True):
     bert_full_model = load_model(bert_keras_path, custom_objects=get_base_customer_objects())
     tgt_layer_name = "MLM-Dense"
@@ -706,10 +746,6 @@ def get_seq_embedding_model(max_len, vocab_size,
     model = Model([words_input, seg_input], feature)
     # model.summary()
     return model
-
-
-from keras_transformer.transformer import _wrap_layer, attention_builder, feed_forward_builder, EmbeddingRet, \
-    TrigPosEmbedding, EmbeddingSim
 
 
 def get_lm_decoder_component(name,

@@ -49,7 +49,8 @@ def get_ner_classify_customer_objects():
 
 class NerClassifyExtractor(ModelEstimator):
     customer_objects = get_ner_classify_customer_objects()
-    cache_keys = ['x', 'ner_output']
+    tf_serving_input_keys = ['x', 'seg']
+    tf_serving_output_keys = ['cls_out', 'ner_out']
 
     def __init__(self, name, context, max_len, logger_level="INFO"):
         assert isinstance(context, NerClassifyContext)

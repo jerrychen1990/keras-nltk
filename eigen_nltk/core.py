@@ -15,17 +15,19 @@ import codecs
 import copy
 import math
 import pickle
+import os
 from abc import abstractmethod
 
 import numpy as np
 from keras.models import load_model as load_keras_model
 from keras.utils.training_utils import multi_gpu_model
 
-from eigen_nltk.tokenizer import MyTokenizer
-from eigen_nltk.decorator import ensure_file_path
 from eigen_nltk.constants import SPECIAL_TOKEN_LIST
-from eigen_nltk.model_utils import VALID_FIT_GENERATOR_KWARGS, get_base_customer_objects
-from eigen_nltk.utils import get_logger, jload
+from eigen_nltk.decorator import ensure_file_path
+from eigen_nltk.constants import TF_DEFAULT_SIGNATURE_NAME
+from eigen_nltk.model_utils import VALID_FIT_GENERATOR_KWARGS, get_base_customer_objects, export_keras_as_tf_file
+from eigen_nltk.tokenizer import MyTokenizer
+from eigen_nltk.utils import get_logger, jload, call_tf_service, compress_file
 
 
 class Context(object):
@@ -65,7 +67,8 @@ class BaseEstimator(object):
 
 class ModelEstimator(BaseEstimator):
     customer_objects = get_base_customer_objects()
-    cache_keys = ['x']
+    tf_serving_input_keys = ['x', 'seg']
+    tf_serving_output_keys = ['y']
 
     def __init__(self, name, data_parser, logger_level="INFO"):
         super().__init__(name, logger_level)
@@ -100,6 +103,19 @@ class ModelEstimator(BaseEstimator):
         self.logger.info("saving model to path:{}".format(path))
         self.model.save(path, include_optimizer=False)
 
+    @ensure_file_path
+    def save_tf_serving_model(self, path, version=0, do_compress=True):
+        export_path = os.path.join(path, str(version))
+        self.logger.info("saving tensorflow serving model to {}".format(export_path))
+        export_keras_as_tf_file(model=self.model, input_keys=self.tf_serving_input_keys,
+                                output_keys=self.tf_serving_output_keys, export_path=export_path)
+        if do_compress:
+            compress_path = path + ".tgz"
+            self.logger.info("compress model file to path:{}".format(compress_path))
+            compress_file(export_path, compress_path)
+            return compress_path
+        return path
+
     def save_estimator(self, path):
         self.logger.info("saving extractor to {}".format(path))
         self.save_model(path=path)
@@ -111,10 +127,11 @@ class ModelEstimator(BaseEstimator):
         self.model.summary(print_fn=self.logger.info)
 
     @classmethod
-    def load_estimator(cls, path):
+    def load_estimator(cls, path, load_model=True):
         extractor = pickle.load(open(path + ".pkl", "rb"))
         extractor.logger.info("loading extractor from path:{}".format(path))
-        extractor.load_model(path + ".h5")
+        if load_model:
+            extractor.load_model(path + ".h5")
         return extractor
 
     @abstractmethod
@@ -207,6 +224,24 @@ class ModelEstimator(BaseEstimator):
             rs_data = self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail,
                                                                **kwargs)
         return rs_data
+
+    def predict_batch_tf_serving(self, data, tf_server_host, action="predict", timeout=60, max_retry=3,
+                                 show_detail=False, **kwargs):
+        enhanced_data = self._get_enhanced_data(data)
+        if enhanced_data:
+            tf_request = self._get_tf_serving_request(enhanced_data)
+            tf_response = call_tf_service(tf_request, tf_server_host, action, timeout, max_retry)
+            pred_data = tf_response.json()['outputs']
+            pred_data = [np.array(e) for e in pred_data]
+            rs_data = self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail,
+                                                               **kwargs)
+        return rs_data
+
+    def _get_tf_serving_request(self, train_data):
+        input_list = self._get_model_test_input(train_data)
+        inputs_dict = {k: v.tolist() for k, v in zip(self.tf_serving_input_keys, input_list)}
+        rs_dict = dict(inputs=inputs_dict, signature_name=TF_DEFAULT_SIGNATURE_NAME)
+        return rs_dict
 
     @abstractmethod
     def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False, **kwargs):

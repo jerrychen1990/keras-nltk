@@ -50,14 +50,13 @@ class NerContext(Context):
 
 def get_ner_customer_objects():
     ner_customer_objects = get_base_customer_objects()
-    ner_customer_objects.update(loss=crf_loss, accuracy=crf_accuracy, CRF=CRF,
+    ner_customer_objects.update(CRF=CRF,
                                 crf_loss=crf_loss, crf_accuracy=crf_accuracy, crf_viterbi_accuracy=crf_viterbi_accuracy)
     return ner_customer_objects
 
 
 class NerExtractor(ModelEstimator):
     customer_objects = get_ner_customer_objects()
-    cache_keys = ['x', 'ner_output']
 
     def __init__(self, name, context, max_len, logger_level="INFO"):
         assert isinstance(context, NerContext)
@@ -83,8 +82,7 @@ class NerExtractor(ModelEstimator):
         if use_crf:
             crf_constraint_trans_matrix = np.load(crf_constraint_trans_path) if crf_constraint_trans_path else None
             crf = CRF(self.ner_size, chain_kernel_constant_matrix=crf_constraint_trans_matrix, use_bias=True,
-                      use_boundary=True,
-                      test_mode="viterbi", name="ner", sparse_target=True)
+                      use_boundary=True, test_mode="viterbi", name="ner", sparse_target=True)
             ner_type = crf(feature)
         else:
             ner_type = Dense(self.ner_size, activation="softmax")(feature)

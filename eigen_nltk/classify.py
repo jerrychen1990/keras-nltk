@@ -12,7 +12,7 @@
 """
 
 from keras.layers import *
-from keras.losses import sparse_categorical_crossentropy
+from keras.losses import categorical_crossentropy
 from keras.models import Model
 from keras.regularizers import l1_l2
 from collections import defaultdict
@@ -21,7 +21,7 @@ from eigen_nltk.core import Context, ModelEstimator
 from eigen_nltk.model_utils import get_seq_embedding_model, get_base_customer_objects
 from eigen_nltk.optimizer import get_optimizer_cls
 from eigen_nltk.trans import DataParser
-from eigen_nltk.utils import read_id_mapping, padding_seq
+from eigen_nltk.utils import read_id_mapping, padding_seq, get_multihot_list, array2zero_one_with_threshold
 
 
 class ClassifyContext(Context):
@@ -51,19 +51,19 @@ def get_classify_custom_objects():
 class ClassifyEstimator(ModelEstimator):
     customer_objects = get_classify_custom_objects()
 
-    def __init__(self, name, context, max_len, logger_level="INFO"):
+    def __init__(self, name, context, max_len, multi_label, logger_level="INFO"):
         assert isinstance(context, ClassifyContext)
         data_parser = ClassifyDataParser(context)
         self.max_len = max_len
         self.context = context
+        self.multi_label = multi_label
         self.label_size = context.label_size
         self.vocab_size = context.vocab_size
         super().__init__(name, data_parser, logger_level)
 
     def _build_model(self, use_bert=False, fine_tune_bert=False, use_lstm=False,
                      word_embedding_dim=32, lstm_dim=32, dense_dim_list=[], drop_out_rate=0.2, l1=0.01, l2=0.01,
-                     freeze_layer_num=0,
-                     bert_ckpt_path=None, bert_keras_path=None, **kwargs):
+                     freeze_layer_num=0, bert_ckpt_path=None, bert_keras_path=None, **kwargs):
 
         seq_embedding_model = get_seq_embedding_model(self.max_len, self.vocab_size,
                                                       freeze_layer_num, word_embedding_dim, lstm_dim,
@@ -80,14 +80,18 @@ class ClassifyEstimator(ModelEstimator):
         for dim in dense_dim_list:
             feature = Dense(dim, activation="relu")(feature)
         feature = Dropout(rate=drop_out_rate)(feature)
-        label_out = Dense(self.label_size, activation="softmax", kernel_regularizer=l1_l2(l1, l2))(feature)
+        if self.multi_label:
+            label_out = Dense(self.label_size, activation="sigmoid", kernel_regularizer=l1_l2(l1, l2))(feature)
+        else:
+            label_out = Dense(self.label_size, activation="softmax", kernel_regularizer=l1_l2(l1, l2))(feature)
+
         model = Model([words_input, seg_input], label_out)
         return model
 
     def _compile_model(self, optimizer_name, optimizer_args, **kwargs):
         opt_cls = get_optimizer_cls(optimizer_name)
         optimizer = opt_cls(**optimizer_args)
-        self.training_model.compile(optimizer, loss=sparse_categorical_crossentropy, metrics=["accuracy"])
+        self.training_model.compile(optimizer, loss=categorical_crossentropy, metrics=["accuracy"])
         return self.training_model
 
     def _get_model_train_input(self, train_data):
@@ -98,11 +102,16 @@ class ClassifyEstimator(ModelEstimator):
             x.append(padding_seq(item['x'], self.max_len))
             seg.append(padding_seq(item['seg'], self.max_len))
             if 'label' in item.keys():
-                y.append(self.context.label2id[str(item['label'])])
+                label_list = item['label']
+                if not isinstance(label_list, list):
+                    label_list = [label_list]
+                label_idx_list = [self.context.label2id[e] for e in label_list]
+                tmp_y = get_multihot_list(self.label_size, label_idx_list)
+                y.append(tmp_y)
         x = np.array(x)
         seg = np.array(seg)
         if y:
-            y = np.array(y)[:, np.newaxis]
+            y = np.array(y)
         return [x, seg], y
 
     def _get_model_test_input(self, test_data):
@@ -121,12 +130,18 @@ class ClassifyEstimator(ModelEstimator):
         return rs_list
 
     def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False, soft=False,
-                                            label=True):
-        pred_idx = np.argmax(pred_data, axis=-1)
-        pred_label = [self.context.id2label[e] for e in pred_idx]
+                                            label=True, threshold=0.5):
         if soft:
             return pred_data
+
+        if self.multi_label:
+            pred_hard = array2zero_one_with_threshold(pred_data, threshold=threshold)
+            pred_idx = [[idx for idx, v in enumerate(seq) if v == 1] for seq in pred_hard]
+        else:
+            pred_idx = np.argmax(pred_data, axis=-1).reshape(-1, 1).tolist()
+
         if label:
+            pred_label = [[self.context.id2label[e] for e in seq] for seq in pred_idx]
             return pred_label
         return pred_idx
 
