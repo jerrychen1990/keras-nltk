@@ -225,17 +225,34 @@ class ModelEstimator(BaseEstimator):
                                                                **kwargs)
         return rs_data
 
+    @classmethod
+    def _convert_tf_serving_result(cls, tf_response):
+        pred_data = tf_response.json()['outputs']
+
+        def convert_data(data):
+            if isinstance(data, list):
+                return np.array(data)
+            if isinstance(data, dict):
+                return {k: convert_data(v) for k, v in data.items()}
+            return data
+
+        pred_data = convert_data(pred_data)
+        if isinstance(pred_data, dict):
+            pred_data = tuple([pred_data[k] for k in cls.tf_serving_output_keys])
+        # print(pred_data)
+        return pred_data
+
     def predict_batch_tf_serving(self, data, tf_server_host, action="predict", timeout=60, max_retry=3,
                                  show_detail=False, **kwargs):
         enhanced_data = self._get_enhanced_data(data)
         if enhanced_data:
             tf_request = self._get_tf_serving_request(enhanced_data)
             tf_response = call_tf_service(tf_request, tf_server_host, action, timeout, max_retry)
-            pred_data = tf_response.json()['outputs']
-            pred_data = [np.array(e) for e in pred_data]
-            rs_data = self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail,
-                                                               **kwargs)
-        return rs_data
+            pred_data = self._convert_tf_serving_result(tf_response)
+            return self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail,
+                                                            **kwargs)
+        else:
+            return [[]] * len(data)
 
     def _get_tf_serving_request(self, train_data):
         input_list = self._get_model_test_input(train_data)

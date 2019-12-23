@@ -43,3 +43,16 @@ def safe_args(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def adapt_single(func):
+    def wrapper(instance, data, **kwargs):
+        single_tag = not isinstance(data, list)
+        if single_tag:
+            data = [data]
+        rs = func(instance, data, **kwargs)
+        if single_tag:
+            rs = rs[0] if rs else None
+        return rs
+
+    return wrapper

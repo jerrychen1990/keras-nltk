@@ -84,6 +84,8 @@ def split_text_by_commas(seq, pattern=r"\.|,|\?|\;|!|。|，|？|；|！"):
     return rs
 
 
+
+
 def split_token_by_commas(token_list, pattern=".,?;!。，？；！"):
     pattern_list = list(pattern)
     rs_list = []
