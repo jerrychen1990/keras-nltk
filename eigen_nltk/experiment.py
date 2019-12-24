@@ -13,6 +13,7 @@
 from abc import abstractmethod
 
 from keras.callbacks import TensorBoard, EarlyStopping
+import os
 
 from eigen_nltk.callback import ModelSaver
 from eigen_nltk.classify import ClassifyEstimator, ClassifyContext
@@ -98,9 +99,11 @@ class BaseExperiment:
         self.is_save_tf = params['common'].get("is_save_tf", False)
         self.oss_dir = params['common'].get("oss_dir", None)
         self.base_dir = params['common'].get("base_dir", ".")
-        self.model_dir = "{0}/model".format(self.base_dir)
-
-        self.model_path = "{0}/model/{1}".format(self.base_dir, self.model_name)
+        self.model_dir = os.path.join(self.base_dir, "model")
+        self.tensorboard_dir = os.path.join(self.base_dir, "tensorboard")
+        self.output_dir = os.path.join(self.base_dir, "output")
+        self.eval_dir = os.path.join(self.base_dir, "eval")
+        self.model_path = os.path.join(self.model_dir, self.model_name)
 
         self.estimator = None
         self.pred_data_dict = dict()
@@ -139,10 +142,9 @@ class BaseExperiment:
         if not self.estimator:
             logger.error("please crete estimator before training!")
             return
-        tensorboard_dir = "{}/tensorboard".format(self.base_dir)
-        create_dir(tensorboard_dir)
+        create_dir(self.tensorboard_dir)
         tensorboard_callback = TensorBoard(
-            log_dir='{0}/{1}-{2}'.format(tensorboard_dir, self.model_name, get_now_str()))
+            log_dir='{0}/{1}-{2}'.format(self.tensorboard_dir, self.model_name, get_now_str()))
         early_stop = EarlyStopping(**self.callback_args, restore_best_weights=True)
         callbacks = [tensorboard_callback, early_stop]
 
@@ -164,10 +166,8 @@ class BaseExperiment:
 
     def test_model(self, show_detail=False, verbose=1, max_predict_num=10000):
         star_print("testing phrase start")
-        eval_path = self.base_dir + "/eval"
-        output_path = self.base_dir + "/output"
-        create_dir(eval_path)
-        create_dir(output_path)
+        create_dir(self.eval_dir)
+        create_dir(self.output_dir)
 
         for tag in ['train', 'dev', 'test']:
             if tag not in self.eval_phase_list and tag not in self.output_phase_list:
@@ -180,13 +180,13 @@ class BaseExperiment:
                 logger.info("evaluating {} set".format(tag))
                 eval_rs = self._eval_func(raw_data, pred_data)
                 logger.info(jdumps(eval_rs))
-                path = "{0}/{1}_{2}.json".format(eval_path, self.model_name, tag)
+                path = "{0}/{1}_{2}.json".format(self.eval_dir, self.model_name, tag)
                 logger.info("writing eval result to :{}".format(path))
                 jdump(eval_rs, path)
             if tag in self.output_phase_list:
                 logger.info("output detail of {} set:".format(tag))
                 output_data = self._output_func(raw_data, pred_data)
-                path = '{0}/{1}_{2}.json'.format(output_path, self.model_name, tag)
+                path = '{0}/{1}_{2}.json'.format(self.output_dir, self.model_name, tag)
                 logger.info("writing output result to :{}".format(path))
                 jdump(output_data, path)
 
