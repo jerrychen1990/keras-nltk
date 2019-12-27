@@ -27,7 +27,7 @@ from eigen_nltk.decorator import ensure_file_path
 from eigen_nltk.constants import TF_DEFAULT_SIGNATURE_NAME
 from eigen_nltk.model_utils import VALID_FIT_GENERATOR_KWARGS, get_base_customer_objects, export_keras_as_tf_file
 from eigen_nltk.tokenizer import MyTokenizer
-from eigen_nltk.utils import get_logger, jload, call_tf_service, compress_file
+from eigen_nltk.utils import get_logger, jload, call_tf_service, compress_file, cut_list
 
 
 class Context(object):
@@ -242,17 +242,24 @@ class ModelEstimator(BaseEstimator):
         # print(pred_data)
         return pred_data
 
-    def predict_batch_tf_serving(self, data, tf_server_host, action="predict", timeout=60, max_retry=3,
+    def predict_batch_tf_serving(self, data, tf_server_host, batch_size=16, action="predict", timeout=60, max_retry=3,
                                  show_detail=False, **kwargs):
-        enhanced_data = self._get_enhanced_data(data)
-        if enhanced_data:
-            tf_request = self._get_tf_serving_request(enhanced_data)
-            tf_response = call_tf_service(tf_request, tf_server_host, action, timeout, max_retry)
-            pred_data = self._convert_tf_serving_result(tf_response)
-            return self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail,
-                                                            **kwargs)
-        else:
-            return [[]] * len(data)
+        rs_list = []
+        self.logger.info("predicting with tf server:{}".format(tf_server_host))
+        for idx, batch in enumerate(cut_list(data, batch_size)):
+            self.logger.info("predicting batch:{}".format(idx))
+            enhanced_data = self._get_enhanced_data(batch)
+            if enhanced_data:
+                tf_request = self._get_tf_serving_request(enhanced_data)
+                tf_response = call_tf_service(tf_request, tf_server_host, action, timeout, max_retry)
+                pred_data = self._convert_tf_serving_result(tf_response)
+                batch_rs = self._get_predict_data_from_model_output(data, enhanced_data, pred_data,
+                                                                    show_detail=show_detail,
+                                                                    **kwargs)
+            else:
+                batch_rs = [[]] * len(batch)
+            rs_list.extend(batch_rs)
+        return rs_list
 
     def _get_tf_serving_request(self, train_data):
         input_list = self._get_model_test_input(train_data)

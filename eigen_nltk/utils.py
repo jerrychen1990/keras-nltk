@@ -84,8 +84,6 @@ def split_text_by_commas(seq, pattern=r"\.|,|\?|\;|!|。|，|？|；|！"):
     return rs
 
 
-
-
 def split_token_by_commas(token_list, pattern=".,?;!。，？；！"):
     pattern_list = list(pattern)
     rs_list = []
@@ -234,6 +232,19 @@ def jload(fp):
 # my json loads
 def jloads(s):
     return json.loads(s, object_hook=as_python_object)
+
+
+def jload_lines(fp):
+    rs = []
+    if isinstance(fp, str):
+        fp = codecs.open(fp, 'r', 'utf8')
+    with fp as fp:
+        for idx, line in enumerate(fp):
+            try:
+                rs.append(jloads(line))
+            except Exception as e:
+                raise Exception("line:{} format error!".format(idx + 1))
+    return rs
 
 
 # convert cfg data to dict
@@ -825,6 +836,10 @@ def read_line_data(path):
 
 REMOVE_PATTERN = re.compile(
     r"[^\u3400-\u9FFF\w\d\n\r\·\~\！\@\#\￥\%\……\&\*\（\）\——\-\+\=\【\】\{\}\、\|\；\‘\’\：\“\”\《\》\？\，\。\、\`\~\!\#\$\%\^\&\*\(\)\_\[\]{\}\\\|\;\'\'\:\"\"\,\.\/\<\>\?]")
+
+
+def cut_list(l, batch_size):
+    return [l[idx: idx + batch_size] for idx in range(0, len(l), batch_size)]
 
 
 # remove useless chars in text

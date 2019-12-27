@@ -99,10 +99,12 @@ class BaseExperiment:
         self.is_save_tf = params['common'].get("is_save_tf", False)
         self.oss_dir = params['common'].get("oss_dir", None)
         self.base_dir = params['common'].get("base_dir", ".")
-        self.model_dir = os.path.join(self.base_dir, "model")
-        self.tensorboard_dir = os.path.join(self.base_dir, "tensorboard")
-        self.output_dir = os.path.join(self.base_dir, "output")
-        self.eval_dir = os.path.join(self.base_dir, "eval")
+        self.project_dir = params['common'].get("project_dir", ".")
+
+        self.model_dir = os.path.join(self.base_dir, "model", self.project_dir)
+        self.tensorboard_dir = os.path.join(self.base_dir, "tensorboard", self.project_dir)
+        self.output_dir = os.path.join(self.base_dir, "output", self.project_dir)
+        self.eval_dir = os.path.join(self.base_dir, "eval", self.project_dir)
         self.model_path = os.path.join(self.model_dir, self.model_name)
 
         self.estimator = None
