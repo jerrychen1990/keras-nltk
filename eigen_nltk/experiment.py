@@ -132,6 +132,7 @@ class BaseExperiment:
         if self.ckp_path:
             star_print("initialize estimator from checkpoint")
             self.estimator = self._load_estimator_func()
+            self.estimator.model_name = self.model_name
         else:
             star_print("initialize estimator from model args")
             self.estimator = self._create_estimator_func()
