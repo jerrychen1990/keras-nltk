@@ -155,7 +155,7 @@ class BaseExperiment:
 
         if save_epoch_interval > 0:
             model_saver = ModelSaver(self.estimator, self.model_dir, save_epoch_interval=save_epoch_interval,
-                                     overwrite=False)
+                                     overwrite=True)
             callbacks.append(model_saver)
 
         self.train_args.update(callbacks=callbacks)
