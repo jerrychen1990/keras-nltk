@@ -19,6 +19,7 @@ import os
 from abc import abstractmethod
 
 import numpy as np
+import tensorflow as tf
 from keras.models import load_model as load_keras_model
 from keras.utils.training_utils import multi_gpu_model
 
@@ -93,7 +94,9 @@ class ModelEstimator(BaseEstimator):
     def create_model(self, model_args):
         all_args = dict(**model_args, **(self.context.get_model_args()))
         self.model_args = all_args
-        self.model = self._build_model(**self.model_args)
+        with tf.device('/cpu:0'):
+            model = self._build_model(**self.model_args)
+        self.model = model
         self.model.summary(print_fn=self.logger.info)
         return self.model
 
