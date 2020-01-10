@@ -147,19 +147,21 @@ class ModelEstimator(BaseEstimator):
     def _compile_model(self, **kwargs):
         self.logger.info("compiling model args:{}".format(kwargs))
 
-    def _pre_train(self, train_args, compile_args):
-        gpu_num = train_args.get("gpu_num", 1)
+    def _pre_train(self, compile_args):
+        gpu_num = compile_args.get("gpu_num", 1)
+        self.logger.info("train with {} gpu".format(gpu_num))
         if gpu_num > 1:
             self.training_model = multi_gpu_model(self.model, gpus=gpu_num)
         else:
             self.training_model = self.model
         self._compile_model(**compile_args)
+        self.training_model.summary(print_fn=self.logger.info)
 
     def train_model(self, train_data, dev_data, train_args, compile_args):
         self.logger.info(
             "train model with {0} train_data and {1} dev_data, training args:{2}, compile_args:{3}".format(
                 len(train_data), len(dev_data), train_args, compile_args))
-        self._pre_train(train_args, compile_args)
+        self._pre_train(compile_args)
         enhanced_train_data = self._get_enhanced_data(train_data)
         enhanced_dev_data = self._get_enhanced_data(dev_data)
 
@@ -195,7 +197,7 @@ class ModelEstimator(BaseEstimator):
 
     def train_model_generator(self, train_data, dev_data, train_args, compile_args, is_raw=True):
         self.logger.info("training model with generator")
-        self._pre_train(train_args, compile_args)
+        self._pre_train(compile_args)
         batch_size = train_args['batch_size']
         if is_raw:
             self.logger.info("enhancing train data")
