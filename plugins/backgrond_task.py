@@ -11,9 +11,14 @@
 -------------------------------------------------
 """
 import os
+from plugin_sdk import ConfigParser
 import time
 
 if __name__ == '__main__':
-    print("sleep for 1h")
-    time.sleep(3600)
+    parser = ConfigParser()
+    job_configs = parser.parse()
+    sleep_time = job_configs['args']['sleep_time']
+    sleep_time = int(sleep_time)
+    print("sleep for {} seconds".format(sleep_time))
+    time.sleep(sleep_time)
     print("job ends")
