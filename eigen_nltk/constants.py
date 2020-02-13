@@ -17,9 +17,28 @@ ENTITY_START_2 = "[ES2]"
 ENTITY_END_1 = "[EE1]"
 ENTITY_END_2 = "[EE2]"
 TAB = '[TAB]'
+ENTITY_TAG_TOKEN_LIST = ['[DEV]',
+                         '[/DEV]',
+                         '[ORG]',
+                         '[/ORG]',
+                         '[EVENT]',
+                         '[/EVENT]',
+                         '[UNK]',
+                         '[/UNK]',
+                         '[OTHER]',
+                         '[/OTHER]',
+                         '[LOC]',
+                         '[/LOC]',
+                         '[WORK]',
+                         '[/WORK]',
+                         '[PER]',
+                         '[/PER]',
+                         '[TIME]',
+                         '[/TIME]']
 
 TF_DEFAULT_SIGNATURE_NAME = "serving_default"
 SPECIAL_TOKEN_LIST = [ENTITY_START_1, ENTITY_START_2, ENTITY_END_1, ENTITY_END_2, TAB]
+SPECIAL_TOKEN_LIST = SPECIAL_TOKEN_LIST + ENTITY_TAG_TOKEN_LIST
 
 NER_ANNOTATION_LIST = [BIO, BMESO]
 SEP = '[SEP]'

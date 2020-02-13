@@ -26,3 +26,6 @@ if __name__ == '__main__':
     params['compile_args']['gpu_num'] = int(gpu_num)
     experiment = NerExperiment(params)
     experiment.do_experiment()
+
+
+

@@ -20,7 +20,7 @@ import numpy as np
 import random
 import copy
 import tarfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from configparser import ConfigParser
 from collections import defaultdict, OrderedDict
 from fast_requests import FastSession
@@ -82,6 +82,22 @@ def split_text_by_commas(seq, pattern=r"\.|,|\?|\;|!|。|，|？|；|！"):
     if texts[-1]:
         rs.append(texts[-1])
     return rs
+
+
+def int2date(d):
+    return datetime.strptime(str(d), "%Y%m%d")
+
+
+def iter_date(d1, d2, step=1, fmt=None):
+    rs_list = []
+    date_step = timedelta(step)
+    i_date = d1
+    while i_date <= d2:
+        rs_list.append(i_date)
+        i_date = i_date + date_step
+    if fmt:
+        rs_list = [datetime.strftime(e, fmt) for e in rs_list]
+    return rs_list
 
 
 def split_token_by_commas(token_list, pattern=".,?;!。，？；！"):

@@ -146,7 +146,7 @@ class NerExtractor(ModelEstimator):
     def _get_short_data(self, data):
         return self.data_parser.get_short_data(data, self.max_len)
 
-    def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False):
+    def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False, **kwargs):
         pred_hard = np.argmax(pred_data, axis=-1)
         if show_detail:
             print("raw ner output:\n{}".format(pred_hard))
