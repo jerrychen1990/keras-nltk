@@ -94,7 +94,7 @@ class ModelEstimator(BaseEstimator):
     def create_model(self, model_args):
         all_args = dict(**model_args, **(self.context.get_model_args()))
         self.model_args = all_args
-        self.logger.info("create model with cpu")
+        # self.logger.info("create model with cpu")
         # with tf.device('/cpu:0'):
         model = self._build_model(**self.model_args)
         self.model = model

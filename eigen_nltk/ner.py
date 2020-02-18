@@ -69,7 +69,7 @@ class NerExtractor(ModelEstimator):
         super().__init__(name, self.data_parser, logger_level)
 
     def _build_model(self, use_bert=True, fine_tune_bert=False, use_lstm=False, use_crf=True,
-                     word_embedding_dim=32, lstm_dim=32, freeze_layer_num=0,
+                     word_embedding_dim=32, lstm_dim=32, freeze_layer_num=0, head_num=1,
                      crf_constraint_trans_path=None, bert_ckpt_path=None, bert_keras_path=None, **kwargs):
         seq_embedding_model = get_seq_embedding_model(self.max_len, self.vocab_size,
                                                       freeze_layer_num, word_embedding_dim, lstm_dim,
@@ -78,42 +78,60 @@ class NerExtractor(ModelEstimator):
 
         input_feature = seq_embedding_model.inputs
         feature = seq_embedding_model.output
-
-        if use_crf:
-            crf_constraint_trans_matrix = np.load(crf_constraint_trans_path) if crf_constraint_trans_path else None
-            crf = CRF(self.ner_size, chain_kernel_constant_matrix=crf_constraint_trans_matrix, use_bias=True,
-                      use_boundary=True, test_mode="viterbi", name="ner", sparse_target=True)
-            ner_type = crf(feature)
-        else:
-            ner_type = Dense(self.ner_size, activation="softmax")(feature)
-        model = Model(input_feature, ner_type)
+        ner_out = []
+        for idx in range(head_num):
+            if use_crf:
+                crf_constraint_trans_matrix = np.load(crf_constraint_trans_path) if crf_constraint_trans_path else None
+                crf = CRF(self.ner_size, chain_kernel_constant_matrix=crf_constraint_trans_matrix, use_bias=True,
+                          use_boundary=True, test_mode="viterbi", name="ner{}".format(idx), sparse_target=True)
+                ner_type = crf(feature)
+            else:
+                ner_type = Dense(self.ner_size, activation="softmax", name="ner{}".format(idx))(feature)
+            ner_out.append(ner_type)
+        ner_out = ner_out[0] if len(ner_out) == 1 else ner_out
+        model = Model(input_feature, ner_out)
+        self.head_num = head_num
         return model
 
     def _compile_model(self, optimizer_name, optimizer_args, **kwargs):
         use_crf = self.model_args['use_crf']
         opt_cls = get_optimizer_cls(optimizer_name)
         optimizer = opt_cls(**optimizer_args)
+        mini_loss = crf_loss if use_crf else sparse_categorical_crossentropy
+        loss = {"ner{}".format(idx): mini_loss for idx in range(self.head_num)}
+        loss_weights = {"ner{}".format(idx): 1. / self.head_num for idx in range(self.head_num)}
 
-        if use_crf:
-            self.training_model.compile(optimizer, loss=crf_loss, metrics=[crf_accuracy])
-        else:
-            self.training_model.compile(optimizer, loss=sparse_categorical_crossentropy)
+        self.training_model.compile(
+            optimizer=optimizer,
+            loss=loss,
+            loss_weights=loss_weights
+        )
         return self.training_model
 
     def _get_model_train_input(self, train_data):
         x = []
         seg = []
         y = []
+        head_num = 1
         for item in train_data:
             x.append(padding_seq(item['x'], self.max_len))
             seg.append(padding_seq(item['seg'], self.max_len))
             if 'ner_output' in item.keys():
-                y.append(padding_seq(item['ner_output'], self.max_len))
-
+                tmp_head_num = item.get("head_num", 1)
+                if tmp_head_num > 1:
+                    head_num = tmp_head_num
+                    tmp_y = [padding_seq(e, self.max_len) for e in item['ner_output']]
+                else:
+                    tmp_y = padding_seq(item['ner_output'], self.max_len)
+                y.append(tmp_y)
         x = np.array(x)
         seg = np.array(seg)
         if y:
-            y = np.array(y)[:, :, np.newaxis]
+            if head_num > 1:
+                y = [[e[idx] for e in y] for idx in range(head_num)]
+                y = [np.expand_dims(np.array(e), 2) for e in y]
+            else:
+                y = np.expand_dims(np.array(y), 2)
         return [x, seg], y
 
     def create_model(self, model_args):
@@ -136,9 +154,18 @@ class NerExtractor(ModelEstimator):
             tmp_item.update(**token_input)
             if "entity_list" in item.keys():
                 entity_list = item['entity_list']
-                entity_list = [(e[0], e[1], [add_offset(span, -offset) for span in e[2]]) for e in entity_list]
-                ner_output = self.data_parser.get_ner_output(token, entity_list, char2token, self.ner_annotation_type)
-                tmp_item["ner_output"] = ner_output
+                if item.get("head_num", 1) > 1:
+                    tmp_item["ner_output"] = []
+                    for e_list in entity_list:
+                        e_list = [(e[0], e[1], [add_offset(span, -offset) for span in e[2]]) for e in e_list]
+                        ner_output = self.data_parser.get_ner_output(token, e_list, char2token,
+                                                                     self.ner_annotation_type)
+                        tmp_item["ner_output"].append(ner_output)
+                else:
+                    entity_list = [(e[0], e[1], [add_offset(span, -offset) for span in e[2]]) for e in entity_list]
+                    ner_output = self.data_parser.get_ner_output(token, entity_list, char2token,
+                                                                 self.ner_annotation_type)
+                    tmp_item["ner_output"] = ner_output
             enhance_data.append(tmp_item)
         self.logger.info("get {0} enhanced data from {1} origin data".format(len(enhance_data), len(data)))
         return enhance_data
@@ -147,13 +174,23 @@ class NerExtractor(ModelEstimator):
         return self.data_parser.get_short_data(data, self.max_len)
 
     def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False, **kwargs):
-        pred_hard = np.argmax(pred_data, axis=-1)
-        if show_detail:
-            print("raw ner output:\n{}".format(pred_hard))
-        entity_list_pred = [self.data_parser.get_ner_from_output(item['content'], pred, item['token2char_mapping']) for
-                            item, pred in zip(enhanced_data, pred_hard)]
-        merged_entity_list_pred = merge_entity_lists(entity_list_pred, enhanced_data)
-        return merged_entity_list_pred
+        single_tag = False
+        if not isinstance(pred_data, list):
+            single_tag = True
+            pred_data = [pred_data]
+        rs_list = []
+        for pred in pred_data:
+            pred_hard = np.argmax(pred, axis=-1)
+            if show_detail:
+                print("raw ner output:\n{}".format(pred_hard))
+            entity_list_pred = [self.data_parser.get_ner_from_output(item['content'], pred, item['token2char_mapping'])
+                                for
+                                item, pred in zip(enhanced_data, pred_hard)]
+            merged_entity_list_pred = merge_entity_lists(entity_list_pred, enhanced_data)
+            rs_list.append(merged_entity_list_pred)
+        if single_tag:
+            rs_list = rs_list[0]
+        return rs_list
 
 
 class EntityPairNerExtractor(NerExtractor):
