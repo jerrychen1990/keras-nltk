@@ -58,12 +58,11 @@ class MyThread(Thread):
             if batch:
                 print("thread{0} fetch data from {1} to {2}".format(self.idx, start, end))
                 rs_list = []
-                for item in tqdm(batch, miniters=200, mininterval=30):
-                    item
+                for item in batch:
                     rs_item = parse_magi_item(item, thu)
                     if rs_item:
                         rs_list.append(rs_item)
-                path = "/data/jh/notebooks/chenhao/eigen-nlp-toolkit/magi_{}.json".format(start)
+                path = "/data/jh/notebooks/chenhao/eigen-nlp-toolkit/data/openie/magi_general/magi_{}.json".format(start)
                 print("dump to {}".format(path))
                 jdump(rs_list, path)
                 self.count += 1
