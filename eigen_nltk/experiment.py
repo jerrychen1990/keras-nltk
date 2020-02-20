@@ -14,7 +14,6 @@ from abc import abstractmethod
 
 from keras.callbacks import TensorBoard, EarlyStopping
 import os
-
 from eigen_nltk.callback import ModelSaver
 from eigen_nltk.classify import ClassifyEstimator, ClassifyContext
 from eigen_nltk.core import Context
@@ -227,12 +226,13 @@ class NerExperiment(BaseExperiment):
         super().__init__(params)
         self.ner_dict_path = params['schema']['ner_dict_path']
         self.annotation_type = params['schema']['annotation_type']
+        self.pos_vocab_path = params['schema'].get("pos_vocab_path", None)
 
     def _load_estimator_func(self):
         return NerExtractor.load_estimator(self.ckp_path)
 
     def _create_estimator_func(self):
-        ner_context = NerContext(self.vocab_path, self.ner_dict_path, self.annotation_type)
+        ner_context = NerContext(self.vocab_path, self.ner_dict_path, self.annotation_type, self.pos_vocab_path)
         extractor = NerExtractor(self.model_name, ner_context, self.max_len, logger_level=self.log_level)
         extractor.create_model(self.model_args)
         return extractor

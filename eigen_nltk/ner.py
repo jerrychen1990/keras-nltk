@@ -12,6 +12,7 @@
 """
 import math
 from tqdm import tqdm
+import codecs
 from collections import defaultdict
 from itertools import groupby
 
@@ -30,7 +31,7 @@ from eigen_nltk.utils import read_id_mapping, padding_seq, add_offset, flat, con
 
 
 class NerContext(Context):
-    def __init__(self, vocab_path, ner_dict_path, ner_annotation_type):
+    def __init__(self, vocab_path, ner_dict_path, ner_annotation_type, pos_vocab_path=None):
         super().__init__(vocab_path)
         self.id2ner, self.ner2id = read_id_mapping(ner_dict_path)
         self.ner_size = len(self.id2ner)
@@ -41,6 +42,14 @@ class NerContext(Context):
             entity_type = self.id2ner[idx].split("_")[1]
             self.entity_type_list.append(entity_type)
         self.entity_type_num = len(self.entity_type_list)
+        self.pos_size = 0
+        if pos_vocab_path:
+            self.pos2id = {}
+            with codecs.open(pos_vocab_path, "r", "utf8") as f:
+                for line in f:
+                    self.pos2id[line.strip()] = len(self.pos2id)
+            self.pos_size = len(self.pos2id)
+            self.id2pos = {v: k for k, v in self.pos2id.items()}
 
     def get_model_args(self):
         model_args = super().get_model_args()
@@ -66,13 +75,14 @@ class NerExtractor(ModelEstimator):
         self.ner_annotation_type = self.context.ner_annotation_type
         self.vocab_size = self.context.vocab_size
         self.ner_size = self.context.ner_size
+        self.pos_size = self.context.pos_size
         super().__init__(name, self.data_parser, logger_level)
 
     def _build_model(self, use_bert=True, fine_tune_bert=False, use_lstm=False, use_crf=True,
-                     word_embedding_dim=32, lstm_dim=32, freeze_layer_num=0, head_num=1,
+                     word_embedding_dim=32, lstm_dim=32, pos_embedding_dim=32, freeze_layer_num=0, head_num=1,
                      crf_constraint_trans_path=None, bert_ckpt_path=None, bert_keras_path=None, **kwargs):
-        seq_embedding_model = get_seq_embedding_model(self.max_len, self.vocab_size,
-                                                      freeze_layer_num, word_embedding_dim, lstm_dim,
+        seq_embedding_model = get_seq_embedding_model(self.max_len, self.vocab_size, self.pos_size,
+                                                      freeze_layer_num, word_embedding_dim, lstm_dim, pos_embedding_dim,
                                                       use_bert, fine_tune_bert, use_lstm,
                                                       bert_ckpt_path, bert_keras_path)
 
@@ -111,11 +121,14 @@ class NerExtractor(ModelEstimator):
     def _get_model_train_input(self, train_data):
         x = []
         seg = []
+        pos = []
         y = []
         head_num = 1
         for item in train_data:
             x.append(padding_seq(item['x'], self.max_len))
             seg.append(padding_seq(item['seg'], self.max_len))
+            if 'pos_input' in item.keys():
+                pos.append(padding_seq(item['pos_input'], self.max_len))
             if 'ner_output' in item.keys():
                 tmp_head_num = item.get("head_num", 1)
                 if tmp_head_num > 1:
@@ -124,15 +137,16 @@ class NerExtractor(ModelEstimator):
                 else:
                     tmp_y = padding_seq(item['ner_output'], self.max_len)
                 y.append(tmp_y)
-        x = np.array(x)
-        seg = np.array(seg)
+        input_list = [np.array(x), np.array(seg)]
+        if pos:
+            input_list.append(np.array(pos))
         if y:
             if head_num > 1:
                 y = [[e[idx] for e in y] for idx in range(head_num)]
                 y = [np.expand_dims(np.array(e), 2) for e in y]
             else:
                 y = np.expand_dims(np.array(y), 2)
-        return [x, seg], y
+        return input_list, y
 
     def create_model(self, model_args):
         model_args["max_len"] = self.max_len
@@ -147,11 +161,13 @@ class NerExtractor(ModelEstimator):
             tmp_item = copy.copy(item)
             content = item['content']
             offset = item['offset']
+            pos = item['pos']
             prefix = item.get("prefix", None)
-            token_input = self.data_parser.get_token_input(content, prefix)
+            token_input = self.data_parser.get_token_input(content, prefix, pos)
             token = token_input['token']
             char2token = token_input['char2token_mapping']
             tmp_item.update(**token_input)
+
             if "entity_list" in item.keys():
                 entity_list = item['entity_list']
                 if item.get("head_num", 1) > 1:

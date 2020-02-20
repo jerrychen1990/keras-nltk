@@ -714,12 +714,13 @@ VALID_FIT_GENERATOR_KWARGS = ["steps_per_epoch", "epochs", "verbose", "callbacks
                               "use_multiprocessing", "shuffle", "initial_epoch", "validation_steps"]
 
 
-def get_seq_embedding_model(max_len, vocab_size,
-                            freeze_layer_num=0, word_embedding_dim=32, lstm_dim=32,
+def get_seq_embedding_model(max_len, vocab_size, pos_size=0,
+                            freeze_layer_num=0, word_embedding_dim=32, lstm_dim=32, pos_embedding_dim=32,
                             use_bert=False, fine_tune_bert=False, use_lstm=False,
                             bert_ckpt_path=None, bert_keras_path=None):
     words_input = Input(shape=(max_len,), dtype='int32', name='x')
     seg_input = Input(shape=(max_len,), dtype='int32', name='seg')
+    input_list = [words_input, seg_input]
 
     if use_bert and (bert_ckpt_path or bert_keras_path):
         if bert_ckpt_path:
@@ -739,11 +740,19 @@ def get_seq_embedding_model(max_len, vocab_size,
         word_feature = Add()([words_input, seg_input])
         word_feature = Embedding(input_dim=vocab_size, output_dim=word_embedding_dim,
                                  trainable=True, mask_zero=True, embeddings_initializer="uniform")(word_feature)
-    feature = word_feature
+    if pos_size:
+        pos_input = Input(shape=(max_len,), dtype='int32', name='pos')
+        input_list.append(pos_input)
+        pos_feature = Embedding(input_dim=pos_size, output_dim=pos_embedding_dim,
+                                trainable=True, mask_zero=True, embeddings_initializer="uniform")(pos_input)
+        feature = Concatenate()([pos_feature, word_feature])
+    else:
+        feature = word_feature
+
     if use_lstm:
         feature = Bidirectional(LSTM(lstm_dim // 2, return_sequences=True))(feature)
         feature = Bidirectional(LSTM(lstm_dim // 2, return_sequences=True))(feature)
-    model = Model([words_input, seg_input], feature)
+    model = Model(input_list, feature)
     # model.summary()
     return model
 

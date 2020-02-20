@@ -85,20 +85,27 @@ class DataParser(object):
         return dict(x=x, seg=seg, token=token, text=full_text)
 
     # get ner model input from text
-    def get_token_input(self, content, prefix=None):
+    def get_token_input(self, content, prefix=None, pos=None):
         text, second_text = (prefix, content) if prefix else (content, None)
         bert_input = self.get_bert_input(text, second_text)
         token_offset = bert_input['seg'].index(1) if prefix else 1
 
         token2char_mapping = get_token2char_mapping(bert_input['token'], content, token_offset)
         char2token_mapping = get_char2token_mapping(content, token2char_mapping)
-        return dict(**bert_input, token_offset=token_offset,
-                    token2char_mapping=token2char_mapping, char2token_mapping=char2token_mapping)
+        rs = dict(**bert_input, token_offset=token_offset,
+                  token2char_mapping=token2char_mapping, char2token_mapping=char2token_mapping)
+        if pos and self.context.pos_size:
+            pos_idx = [token2char_mapping[idx] for idx in range(len(bert_input['token']))]
+            pos_token = [pos[idx] if 0 <= idx < len(pos) else '[PAD]' for idx in pos_idx]
+            pos_input = [self.context.pos2id.get(p, 0) for p in pos_token]
+            rs.update(pos_token=pos_token, pos_input=pos_input)
+        return rs
 
     def item2short_item(self, idx, item, max_len):
         assert max_len > 2
         rs_list = []
         content = item["content"]
+        pos = item['pos']
         prefix = item.get("prefix", None)
         detail_info = self.get_token_input(content, prefix)
         token_offset = detail_info['token_offset']
@@ -112,8 +119,9 @@ class DataParser(object):
             end = beg + len(short_token)
             s, e = token2char_mapping[beg], token2char_mapping[end]
             tmp_content = content[s: e]
+            tmp_pos = pos[s:e]
             beg = end
-            tmp_item.update(content=tmp_content, idx=idx, offset=s)
+            tmp_item.update(content=tmp_content, idx=idx, offset=s, pos=tmp_pos)
             rs_list.append(tmp_item)
         return rs_list
 
