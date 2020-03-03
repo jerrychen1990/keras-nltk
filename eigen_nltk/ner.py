@@ -111,7 +111,10 @@ class NerExtractor(ModelEstimator):
         optimizer = opt_cls(**optimizer_args)
         mini_loss = crf_loss if use_crf else sparse_categorical_crossentropy
         loss = {"ner{}".format(idx): mini_loss for idx in range(self.head_num)}
-        loss_weights = {"ner{}".format(idx): 1. / self.head_num for idx in range(self.head_num)}
+        if "loss_weights" in kwargs:
+            loss_weights = {"ner{}".format(idx):weight for idx, weight in enumerate(kwargs['loss_weights'])}
+        else:
+            loss_weights = {"ner{}".format(idx): 1. / self.head_num for idx in range(self.head_num)}
 
         self.training_model.compile(
             optimizer=optimizer,
