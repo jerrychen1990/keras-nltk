@@ -96,7 +96,7 @@ class DataParser(object):
                   token2char_mapping=token2char_mapping, char2token_mapping=char2token_mapping)
         if pos and self.context.pos_size:
             pos_idx = [token2char_mapping[idx] for idx in range(len(bert_input['token']))]
-            pos_token = [pos[idx] if 0 <= idx < len(pos) else '[PAD]' for idx in pos_idx]
+            pos_token = [pos[idx] if 0 <= idx < len(pos) else 'x' for idx in pos_idx]
             pos_input = [self.context.pos2id.get(p, 0) for p in pos_token]
             rs.update(pos_token=pos_token, pos_input=pos_input)
         return rs

@@ -112,7 +112,7 @@ class NerExtractor(ModelEstimator):
         mini_loss = crf_loss if use_crf else sparse_categorical_crossentropy
         loss = {"ner{}".format(idx): mini_loss for idx in range(self.head_num)}
         if "loss_weights" in kwargs:
-            loss_weights = {"ner{}".format(idx):weight for idx, weight in enumerate(kwargs['loss_weights'])}
+            loss_weights = {"ner{}".format(idx): weight for idx, weight in enumerate(kwargs['loss_weights'])}
         else:
             loss_weights = {"ner{}".format(idx): 1. / self.head_num for idx in range(self.head_num)}
 
@@ -196,7 +196,7 @@ class NerExtractor(ModelEstimator):
 
     def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False, **kwargs):
         single_tag = False
-        if not isinstance(pred_data, list):
+        if not isinstance(pred_data, list) and not isinstance(pred_data, tuple):
             single_tag = True
             pred_data = [pred_data]
         rs_list = []
@@ -211,6 +211,8 @@ class NerExtractor(ModelEstimator):
             rs_list.append(merged_entity_list_pred)
         if single_tag:
             rs_list = rs_list[0]
+        else:
+            rs_list = [[rs_list[j][i] for j in range(len(rs_list))] for i in range(len(enhanced_data))]
         return rs_list
 
 
