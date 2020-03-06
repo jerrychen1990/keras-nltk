@@ -263,10 +263,11 @@ class ModelEstimator(BaseEstimator):
             enhanced_data = self._get_enhanced_data(batch)
             if enhanced_data:
                 tf_request = self._get_tf_serving_request(enhanced_data)
-                self.logger.info("start predict with keras model")
+                self.logger.info("start predict with tf server")
                 tf_response = call_tf_service(tf_request, tf_server_host, action, timeout, max_retry)
-                self.logger.info("start convert model output")
+                self.logger.info("start convert tf result to model output")
                 pred_data = self._convert_tf_serving_result(tf_response)
+                self.logger.info("start convert model output to service output")
                 batch_rs = self._get_predict_data_from_model_output(data, enhanced_data, pred_data,
                                                                     show_detail=show_detail,
                                                                     **kwargs)
@@ -277,6 +278,7 @@ class ModelEstimator(BaseEstimator):
         return rs_list
 
     def _get_tf_serving_request(self, train_data):
+        self.logger.info("start getting tf service request")
         input_list = self._get_model_test_input(train_data)
         inputs_dict = {k: v.tolist() for k, v in zip(self.tf_serving_input_keys, input_list)}
         rs_dict = dict(inputs=inputs_dict, signature_name=TF_DEFAULT_SIGNATURE_NAME)
