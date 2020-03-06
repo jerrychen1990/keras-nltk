@@ -221,14 +221,19 @@ class ModelEstimator(BaseEstimator):
         return pred_data
 
     def predict_batch(self, data, batch_size=64, verbose=1, show_detail=False, **kwargs):
+        self.logger.info("predict starts")
         super().predict_batch(data, **kwargs)
+        self.logger.info("start getting enhanced data")
         enhanced_data = self._get_enhanced_data(data)
         rs_data = [[]] * len(data)
         if enhanced_data:
             x = self._get_model_test_input(enhanced_data)
+            self.logger.info("start predict with keras model")
             pred_data = self.model.predict(x, batch_size=batch_size, verbose=verbose)
+            self.logger.info("start convert model output")
             rs_data = self._get_predict_data_from_model_output(data, enhanced_data, pred_data, show_detail=show_detail,
                                                                **kwargs)
+        self.logger.info("predict ends")
         return rs_data
 
     @classmethod
@@ -251,13 +256,16 @@ class ModelEstimator(BaseEstimator):
     def predict_batch_tf_serving(self, data, tf_server_host, batch_size=16, action="predict", timeout=60, max_retry=3,
                                  show_detail=False, **kwargs):
         rs_list = []
-        self.logger.info("predicting with tf server:{}".format(tf_server_host))
+        self.logger.info("start predicting with tf server:{}".format(tf_server_host))
         for idx, batch in enumerate(cut_list(data, batch_size)):
             self.logger.info("predicting batch:{}".format(idx))
+            self.logger.info("start getting enhanced data")
             enhanced_data = self._get_enhanced_data(batch)
             if enhanced_data:
                 tf_request = self._get_tf_serving_request(enhanced_data)
+                self.logger.info("start predict with keras model")
                 tf_response = call_tf_service(tf_request, tf_server_host, action, timeout, max_retry)
+                self.logger.info("start convert model output")
                 pred_data = self._convert_tf_serving_result(tf_response)
                 batch_rs = self._get_predict_data_from_model_output(data, enhanced_data, pred_data,
                                                                     show_detail=show_detail,
@@ -265,6 +273,7 @@ class ModelEstimator(BaseEstimator):
             else:
                 batch_rs = [[]] * len(batch)
             rs_list.extend(batch_rs)
+        self.logger.info("predict ends")
         return rs_list
 
     def _get_tf_serving_request(self, train_data):
