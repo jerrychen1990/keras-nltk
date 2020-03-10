@@ -23,10 +23,10 @@ from keras_contrib.losses import crf_loss
 from keras_contrib.metrics import crf_accuracy, crf_viterbi_accuracy
 
 from eigen_nltk.constants import *
-from eigen_nltk.core import ModelEstimator, Context
+from eigen_nltk.core import ModelEstimator, Context, ModelPhase
 from eigen_nltk.model_utils import CRF, get_seq_embedding_model, get_base_customer_objects
 from eigen_nltk.optimizer import get_optimizer_cls
-from eigen_nltk.trans import DataParser, add_entity_tag
+from eigen_nltk.trans import DataParser
 from eigen_nltk.utils import read_id_mapping, padding_seq, add_offset, flat, convert_span
 
 
@@ -161,8 +161,10 @@ class NerExtractor(ModelEstimator):
         short_data = self._get_short_data(data)
         self.logger.info("get {0} short data from {1} origin data".format(len(short_data), len(data)))
         enhance_data = []
+        iter_source = tqdm(iterable=enumerate(short_data),
+                           mininterval=5) if self.model_phase == ModelPhase.TRAIN else enumerate(short_data)
 
-        for idx, item in tqdm(iterable=enumerate(short_data), mininterval=5):
+        for idx, item in iter_source:
             tmp_item = copy.copy(item)
             content = item['content']
             offset = item['offset']
@@ -192,7 +194,8 @@ class NerExtractor(ModelEstimator):
         return enhance_data
 
     def _get_short_data(self, data):
-        return self.data_parser.get_short_data(data, self.max_len)
+        show_progress = self.model_phase == ModelPhase.TRAIN
+        return self.data_parser.get_short_data(data, self.max_len, show_progress=show_progress)
 
     def _get_predict_data_from_model_output(self, origin_data, enhanced_data, pred_data, show_detail=False, **kwargs):
         single_tag = False

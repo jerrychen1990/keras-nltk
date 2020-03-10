@@ -125,9 +125,15 @@ class DataParser(object):
             rs_list.append(tmp_item)
         return rs_list
 
-    def get_short_data(self, data, max_len):
+    def item2short_item_simple(self, idx, item, max_len):
+        rs = dict(**item)
+        rs.update(content=rs['content'][:max_len], pos=rs['pos'][:max_len], idx=idx, offset=0)
+        return [rs]
+
+    def get_short_data(self, data, max_len, show_progress=False):
         rs_list = []
-        for idx, item in tqdm(iterable=enumerate(data), mininterval=5):
-            tmp_list = self.item2short_item(idx, item, max_len)
+        to_iter = tqdm(iterable=enumerate(data), mininterval=5) if show_progress else enumerate(data)
+        for idx, item in to_iter:
+            tmp_list = self.item2short_item_simple(idx, item, max_len)
             rs_list.extend(tmp_list)
         return rs_list

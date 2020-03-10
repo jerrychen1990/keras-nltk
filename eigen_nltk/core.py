@@ -16,10 +16,12 @@ import copy
 import math
 import pickle
 import os
+import sys
 from abc import abstractmethod
 
+from enum import Enum
 import numpy as np
-import tensorflow as tf
+import time
 from keras.models import load_model as load_keras_model
 from keras.utils.training_utils import multi_gpu_model
 
@@ -29,6 +31,11 @@ from eigen_nltk.constants import TF_DEFAULT_SIGNATURE_NAME
 from eigen_nltk.model_utils import VALID_FIT_GENERATOR_KWARGS, get_base_customer_objects, export_keras_as_tf_file
 from eigen_nltk.tokenizer import MyTokenizer
 from eigen_nltk.utils import get_logger, jload, call_tf_service, compress_file, cut_list
+
+
+class ModelPhase(Enum):
+    TRAIN = "TRAIN"
+    PREDICT = "PREDICT"
 
 
 class Context(object):
@@ -79,6 +86,7 @@ class ModelEstimator(BaseEstimator):
         self.training_model = None
         self.data_parser = data_parser
         self.context = data_parser.context
+        self.model_phase = ModelPhase.PREDICT
 
     def __getstate__(self):
         odict = copy.copy(self.__dict__)
@@ -158,6 +166,7 @@ class ModelEstimator(BaseEstimator):
         self.training_model.summary(print_fn=self.logger.info)
 
     def train_model(self, train_data, dev_data, train_args, compile_args):
+        self.model_phase = ModelPhase.TRAIN
         self.logger.info(
             "train model with {0} train_data and {1} dev_data, training args:{2}, compile_args:{3}".format(
                 len(train_data), len(dev_data), train_args, compile_args))
@@ -197,6 +206,7 @@ class ModelEstimator(BaseEstimator):
 
     def train_model_generator(self, train_data, dev_data, train_args, compile_args, is_raw=True):
         self.logger.info("training model with generator")
+        self.model_phase = ModelPhase.TRAIN
         self._pre_train(compile_args)
         batch_size = train_args['batch_size']
         if is_raw:
@@ -222,6 +232,7 @@ class ModelEstimator(BaseEstimator):
 
     def predict_batch(self, data, batch_size=64, verbose=1, show_detail=False, **kwargs):
         self.logger.info("predict starts")
+        self.model_phase = ModelPhase.PREDICT
         super().predict_batch(data, **kwargs)
         self.logger.info("start getting enhanced data")
         enhanced_data = self._get_enhanced_data(data)
@@ -256,16 +267,20 @@ class ModelEstimator(BaseEstimator):
     def predict_batch_tf_serving(self, data, tf_server_host, batch_size=16, action="predict", timeout=60, max_retry=3,
                                  show_detail=False, **kwargs):
         rs_list = []
-        self.logger.info("start predicting with tf server:{}".format(tf_server_host))
+        start_time = time.time()
+        self.logger.info("start predicting to tf server:{}".format(tf_server_host))
         for idx, batch in enumerate(cut_list(data, batch_size)):
-            self.logger.info("predicting batch:{}".format(idx))
+            self.logger.info("predicting batch:{0}, size:{1}".format(idx, len(batch)))
             self.logger.info("start getting enhanced data")
             enhanced_data = self._get_enhanced_data(batch)
             if enhanced_data:
                 tf_request = self._get_tf_serving_request(enhanced_data)
                 self.logger.info("start predict with tf server")
+                tmp_start_time = time.time()
                 tf_response = call_tf_service(tf_request, tf_server_host, action, timeout, max_retry)
-                self.logger.info("start convert tf result to model output")
+                self.logger.info("call tf serving ends, cost:{}s".format(time.time() - tmp_start_time))
+                self.logger.debug("tf serving response size:{}".format(sys.getsizeof(tf_response)))
+                self.logger.debug("start convert tf result to model output")
                 pred_data = self._convert_tf_serving_result(tf_response)
                 self.logger.info("start convert model output to service output")
                 batch_rs = self._get_predict_data_from_model_output(data, enhanced_data, pred_data,
@@ -274,7 +289,7 @@ class ModelEstimator(BaseEstimator):
             else:
                 batch_rs = [[]] * len(batch)
             rs_list.extend(batch_rs)
-        self.logger.info("predict ends")
+        self.logger.info("predict ends, cost:{} in total".format(time.time() - start_time))
         return rs_list
 
     def _get_tf_serving_request(self, train_data):
@@ -282,6 +297,7 @@ class ModelEstimator(BaseEstimator):
         input_list = self._get_model_test_input(train_data)
         inputs_dict = {k: v.tolist() for k, v in zip(self.tf_serving_input_keys, input_list)}
         rs_dict = dict(inputs=inputs_dict, signature_name=TF_DEFAULT_SIGNATURE_NAME)
+        self.logger.debug("tf request size:{}".format(sys.getsizeof(rs_dict)))
         return rs_dict
 
     @abstractmethod
