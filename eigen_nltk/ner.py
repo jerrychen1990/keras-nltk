@@ -66,7 +66,7 @@ def get_ner_customer_objects():
 
 class NerExtractor(ModelEstimator):
     customer_objects = get_ner_customer_objects()
-    tf_serving_input_keys = ['x', 'seg', 'pos']
+    tf_serving_input_keys = ['x', 'seg']
     tf_serving_output_keys = ['ner0', 'ner1', 'ner2']
 
     def __init__(self, name, context, max_len, logger_level="INFO"):
