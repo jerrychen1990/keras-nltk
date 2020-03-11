@@ -168,7 +168,7 @@ class NerExtractor(ModelEstimator):
             tmp_item = copy.copy(item)
             content = item['content']
             offset = item['offset']
-            pos = item['pos']
+            pos = item.get('pos', None)
             prefix = item.get("prefix", None)
             token_input = self.data_parser.get_token_input(content, prefix, pos)
             token = token_input['token']

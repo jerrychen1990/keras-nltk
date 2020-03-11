@@ -127,7 +127,9 @@ class DataParser(object):
 
     def item2short_item_simple(self, idx, item, max_len):
         rs = dict(**item)
-        rs.update(content=rs['content'][:max_len], pos=rs['pos'][:max_len], idx=idx, offset=0)
+        rs.update(content=rs['content'][:max_len], idx=idx, offset=0)
+        if "pos" in rs.keys():
+            rs.update(pos=rs['pos'][:max_len])
         return [rs]
 
     def get_short_data(self, data, max_len, show_progress=False):

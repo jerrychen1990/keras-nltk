@@ -266,9 +266,10 @@ class ModelEstimator(BaseEstimator):
 
     def predict_batch_tf_serving(self, data, tf_server_host, batch_size=16, action="predict", timeout=60, max_retry=3,
                                  show_detail=False, **kwargs):
+        self.model_phase = ModelPhase.PREDICT
         rs_list = []
         start_time = time.time()
-        self.logger.info("start predicting to tf server:{}".format(tf_server_host))
+        self.logger.info("start requesting to tf server:{0} with batch_size:{1}".format(tf_server_host, batch_size))
         for idx, batch in enumerate(cut_list(data, batch_size)):
             self.logger.info("predicting batch:{0}, size:{1}".format(idx, len(batch)))
             self.logger.info("start getting enhanced data")
@@ -293,7 +294,7 @@ class ModelEstimator(BaseEstimator):
         return rs_list
 
     def _get_tf_serving_request(self, train_data):
-        self.logger.info("start getting tf service request")
+        # self.logger.info("start getting tf service request")
         input_list = self._get_model_test_input(train_data)
         inputs_dict = {k: v.tolist() for k, v in zip(self.tf_serving_input_keys, input_list)}
         rs_dict = dict(inputs=inputs_dict, signature_name=TF_DEFAULT_SIGNATURE_NAME)
