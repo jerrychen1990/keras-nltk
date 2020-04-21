@@ -189,6 +189,19 @@ class NerExtractor(ModelEstimator):
                     ner_output = self.data_parser.get_ner_output(token, entity_list, char2token,
                                                                  self.ner_annotation_type)
                     tmp_item["ner_output"] = ner_output
+            token = tmp_item['token']
+            seg = tmp_item['seg']
+            idx_list = []
+            for idx in range(len(token)):
+                if token[idx] == '[TAB]':
+                    idx_list.append(idx)
+
+            if len(idx_list) == 2:
+                seg = seg[:idx_list[0]+1] + [1] * (idx_list[1] - idx_list[0] -1) + seg[idx_list[1]:]
+            if len(idx_list) == 1:
+                seg = seg[:idx_list[0] + 1] + [1] * (len(seg) - idx_list[0] -1)
+            tmp_item['seg'] = seg
+            # tmp_item['seg'][idx+1:] = [1] * (len(tmp_item['seg']) - idx-1)
             enhance_data.append(tmp_item)
         self.logger.info("get {0} enhanced data from {1} origin data".format(len(enhance_data), len(data)))
         return enhance_data
